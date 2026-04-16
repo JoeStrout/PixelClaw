@@ -63,6 +63,12 @@ agentcore/resources/
 - `GetMouseWheelMove()` — use `sign(delta)` not raw value for consistent scroll speed
 - GPU resources (textures, fonts) must be created after `InitWindow` — use `on_start()` hook
 
+## Threading rules
+
+Agent tools run on a background thread. **Tools must never call Raylib or touch `textures.py`** — all OpenGL calls (including `UnloadTexture`) must happen on the main thread. The pattern:
+- Tools call `doc.push(array)` only.
+- `PixelClawApp.update()` drains the reply queue on the main thread, then calls `textures.invalidate_thumbnail/display` for all documents.
+
 ## Architecture notes
 
 - `Context.chat_history` is the raw Anthropic API list; `Context.history` is the human-readable event log

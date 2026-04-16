@@ -1,7 +1,7 @@
 """
 Texture cache for PixelClaw.
 
-Converts PIL Images to Raylib textures and caches them by document identity.
+Converts numpy RGBA arrays to Raylib textures and caches them by document identity.
 Two caches are maintained: thumbnails (small, for the Dock) and display textures
 (full-size, for the Main panel).
 
@@ -12,6 +12,7 @@ from __future__ import annotations
 
 from typing import Any
 
+import numpy as np
 import raylib as rl
 from PIL import Image as PILImage
 
@@ -20,7 +21,12 @@ from .document import ImageDocument
 THUMB_MAX = 112   # max dimension for dock thumbnails
 
 
-def _pil_to_texture(img: PILImage.Image) -> Any:
+def _np_to_pil(arr: np.ndarray) -> PILImage.Image:
+    """Convert an RGBA uint8 ndarray (H, W, 4) to a PIL Image."""
+    return PILImage.fromarray(arr, "RGBA")
+
+
+def _pil_to_texture(img: PILImage.Image, filter: int = rl.TEXTURE_FILTER_POINT) -> Any:
     """Upload a PIL RGBA image to the GPU and return a Raylib Texture."""
     rgba = img.convert("RGBA")
     w, h = rgba.size
@@ -34,7 +40,7 @@ def _pil_to_texture(img: PILImage.Image) -> Any:
         "format":  rl.PIXELFORMAT_UNCOMPRESSED_R8G8B8A8,
     })
     tex = rl.LoadTextureFromImage(rl_img[0])
-    rl.SetTextureFilter(tex, rl.TEXTURE_FILTER_BILINEAR)
+    rl.SetTextureFilter(tex, filter)
     return tex
 
 
@@ -49,9 +55,9 @@ def get_thumbnail(doc: ImageDocument) -> Any | None:
         return None
     key = id(doc)
     if key not in _thumb_cache:
-        thumb = doc.image.copy()
+        thumb = _np_to_pil(doc.image)
         thumb.thumbnail((THUMB_MAX, THUMB_MAX), PILImage.LANCZOS)
-        _thumb_cache[key] = _pil_to_texture(thumb)
+        _thumb_cache[key] = _pil_to_texture(thumb, rl.TEXTURE_FILTER_BILINEAR)
     return _thumb_cache[key]
 
 
@@ -73,7 +79,7 @@ def get_display_texture(doc: ImageDocument) -> Any | None:
         return None
     key = id(doc)
     if key not in _display_cache:
-        _display_cache[key] = _pil_to_texture(doc.image)
+        _display_cache[key] = _pil_to_texture(_np_to_pil(doc.image))
     return _display_cache[key]
 
 

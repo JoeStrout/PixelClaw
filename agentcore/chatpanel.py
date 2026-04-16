@@ -16,6 +16,8 @@ _RESOURCES = Path(__file__).parent / "resources"
 _BALLOON_WIDTH_FRACTION = 0.85
 # Padding between balloon edge and text (all sides)
 _TEXT_PAD = 10
+# Additional padding on bottom
+_BOTTOM_PAD = 14
 # Extra vertical spacing between lines of wrapped text
 _LINE_GAP = 2
 # Vertical gap between successive balloons
@@ -44,8 +46,10 @@ class ChatPanel(Panel):
     """
 
     def __init__(self, name: str, x: float = 0, y: float = 0,
-                 width: float = 0, height: float = 0) -> None:
+                 width: float = 0, height: float = 0,
+                 on_message: Callable[[str], None] | None = None) -> None:
         super().__init__(name, x, y, width, height)
+        self.on_message = on_message
         self.entries: list[ChatEntry] = []
         self.font_size: float = 14.0
         self._scroll_y: float = 0.0
@@ -114,8 +118,10 @@ class ChatPanel(Panel):
         self._scroll_y = max(0.0, self._content_height - self._scroll_area_height())
 
     def _on_submit(self, text: str) -> None:
-        self.add_entry(text, "user")
-        # TODO: hand text to the agent
+        if self.on_message:
+            self.on_message(text)
+        else:
+            self.add_entry(text, "user")
 
     # ------------------------------------------------------------------
     # Lazy resource loading
@@ -171,7 +177,7 @@ class ChatPanel(Panel):
         text_w = self._balloon_width() - _TEXT_PAD * 2
         lines = self._wrap_text(entry.text, text_w)
         text_h = line_h * len(lines) + _LINE_GAP * (len(lines) - 1)
-        return text_h + _TEXT_PAD * 2 + 6
+        return text_h + _TEXT_PAD * 2 + _BOTTOM_PAD
 
     # ------------------------------------------------------------------
     # Drawing

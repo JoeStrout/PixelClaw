@@ -3,6 +3,13 @@ from typing import Any
 
 import raylib as rl
 
+charset = (
+            " !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`"
+            "abcdefghijklmnopqrstuvwxyz{|}~"
+            "“”‘’—–…•×±"
+        )
+codepoints = None
+codepoints_arr = None
 
 class Font:
     """
@@ -31,9 +38,13 @@ class Font:
 
     def _get(self, point_size: float) -> tuple[Any, int]:
         """Return (raylib_font, physical_size), loading and caching if necessary."""
+        global codepoints, codepoints_arr
         physical = self._physical_size(point_size)
         if physical not in self._cache:
-            font = rl.LoadFontEx(str(self._path).encode(), physical, rl.ffi.NULL, 0)
+            if codepoints_arr is None:
+                codepoints = sorted(set(ord(c) for c in charset))
+                codepoints_arr = rl.ffi.new("int[]", codepoints)
+            font = rl.LoadFontEx(str(self._path).encode(), physical, codepoints_arr, len(codepoints))
             rl.SetTextureFilter(font.texture, rl.TEXTURE_FILTER_BILINEAR)
             self._cache[physical] = font
         return self._cache[physical], physical

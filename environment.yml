@@ -6,6 +6,10 @@ dependencies:
   - python=3.12
   - pip
   - pillow
+  - numpy
+  - scipy
+  - scikit-image
   - pip:
     - raylib
     - anthropic
+    - litellm

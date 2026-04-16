@@ -209,5 +209,8 @@ __marimo__/
 # MacOS
 .DS_Store
 
-# Claude (private stuff; we do commit CLAUDE.md though)
+# Project stuff
 .claude
+*.secret
+debug_output/
+

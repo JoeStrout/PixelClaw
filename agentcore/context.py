@@ -41,7 +41,8 @@ class Context(ABC, Generic[D]):
         self.active_index: int                = -1
         self.history:      list[HistoryEntry] = []
         self.current_task: str | None         = None
-        self.chat_history: list[dict]         = []   # Anthropic API format
+        self.chat_history: list[dict]         = []   # LiteLLM/OpenAI message format
+        self.agent_reason: str                = ""   # set by Agent before each tool dispatch
 
     # ------------------------------------------------------------------
     # Document management
@@ -71,3 +72,27 @@ class Context(ABC, Generic[D]):
         entry = HistoryEntry(kind=kind, data=data)
         self.history.append(entry)
         return entry
+
+    # ------------------------------------------------------------------
+    # Agent context rendering
+    # ------------------------------------------------------------------
+
+    def render_context(self) -> str:
+        """Return a Markdown string describing current app state for the agent.
+
+        Override in subclasses to include app-specific state (e.g. image dimensions).
+        """
+        lines = ["## Current Context\n"]
+
+        if self.current_task:
+            lines.append(f"**Current task:** {self.current_task}\n")
+
+        if not self.documents:
+            lines.append("**Open documents:** none\n")
+        else:
+            lines.append("**Open documents:**\n")
+            for i, doc in enumerate(self.documents):
+                marker = " (active)" if i == self.active_index else ""
+                lines.append(f"- {doc.name}{marker}")
+
+        return "\n".join(lines)

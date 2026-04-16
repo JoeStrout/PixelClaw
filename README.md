@@ -9,11 +9,11 @@ This project aims to be a sophisticated AI agent specialized for manipulating im
 - Convert from one format to another
 - Even generate new images, just by describing what you want
 
-Or that's the goal, anyway.  The project is just getting started.  Here's what it looks like so far:
+Or that's the goal, anyway.  Some of those features are not yet implemented, but a lot of basic image manipulation is, as you can see here:
 
 ![PixelClaw screen shot](screenshots/pixelclaw-screenshot.png)
 
-You can (on Mac, at least) drag image files and drop them on the window, and they will open and add to the document thumbnails on the left.  Clicking any thumbnail makes it the active document, shown in the center.  On the right, you can type messages in the field at the bottom and add them to the scrolling list of chat messages, but there is no LLM hooked up yet (and all the messages before your first one are hard-coded placeholders).
+That's not a mock-up; this was an actual image editing session done with PixelClaw.
 
 ## Give us a star!
 

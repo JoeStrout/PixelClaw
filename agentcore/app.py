@@ -1,13 +1,13 @@
 from abc import ABC, abstractmethod
+from pathlib import Path
 
 import raylib as rl
 
 from . import resources
-from .agent import Agent
+from .agent import Agent, DEFAULT_MODEL
 from .context import Context
 from .panel import Panel
 from .tool import Tool
-
 
 class App(ABC):
     def __init__(
@@ -16,15 +16,24 @@ class App(ABC):
         width: int = 1280,
         height: int = 800,
         window_flags: int = rl.FLAG_WINDOW_RESIZABLE,
+        model: str = DEFAULT_MODEL,
+        api_key: str | None = None,
     ):
         self.title = title
         self.width = width
         self.height = height
         self.window_flags = window_flags
+        p = self.get_instructions_path()
+        instructions = p.read_text() if p and p.exists() else None
         self.workspace: Context = self.create_workspace()
         tools: list[Tool] = self.create_tools()
-        self.agent = Agent(self.workspace, tools)
+        self.agent = Agent(self.workspace, tools, model=model, api_key=api_key,
+                           instructions=instructions)
         self.root = Panel("root")
+
+    def get_instructions_path(self) -> Path | None:
+        """Return path to the agent instructions file. Override in subclasses."""
+        return None
 
     @abstractmethod
     def create_workspace(self) -> Context: ...

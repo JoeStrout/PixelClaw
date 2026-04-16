@@ -1,3 +1,5 @@
+import queue
+import threading
 from pathlib import Path
 
 import raylib as rl
@@ -14,6 +16,7 @@ from .dockpanel import DockPanel
 from .layout import LayoutManager
 from .mainpanel import MainPanel
 from . import textures
+from .tools import ApplyTool, CropTool, PadTool, RevertTool, ScaleTool, VersionHistoryTool
 from .workspace import ImageWorkspace
 
 _SUPPORTED_EXTENSIONS = {".png", ".jpg", ".jpeg", ".gif", ".bmp", ".tiff", ".tif", ".webp"}
@@ -22,7 +25,6 @@ SILVER = (192, 192, 192, 255)
 TITLE_SIZE = 48
 TITLE_MARGIN = 12
 
-# Temporary placeholder colors — replace when panels get real content
 _COLOR_HEADER = (45,  45,  70, 255)
 _COLOR_DOCK   = (35,  60,  45, 255)
 _COLOR_MAIN   = (25,  25,  25, 255)
@@ -30,17 +32,22 @@ _COLOR_CHAT   = (55,  35,  60, 255)
 
 
 class PixelClawApp(App):
+    def get_instructions_path(self) -> Path:
+        return Path(__file__).parent / "agent_instructions.md"
+
     def create_workspace(self) -> Context:
         return ImageWorkspace()
 
     def create_tools(self) -> list[Tool]:
-        return []
+        return [ApplyTool(), CropTool(), PadTool(), ScaleTool(), VersionHistoryTool(), RevertTool()]
 
     def on_start(self) -> None:
+        self._reply_queue: queue.Queue[str] = queue.Queue()
+
         self.header = Panel("Header")
         self.dock   = DockPanel("Dock",  context=self.workspace)
         self.main   = MainPanel("Main",  context=self.workspace)
-        self.chat   = ChatPanel("Chat")
+        self.chat   = ChatPanel("Chat",  on_message=self._handle_message)
 
         self.header.bg_color = _COLOR_HEADER
         self.dock.bg_color   = _COLOR_DOCK
@@ -53,23 +60,17 @@ class PixelClawApp(App):
         self.layout = LayoutManager(self.header, self.dock, self.main, self.chat)
         self.layout.update(rl.GetScreenWidth(), rl.GetScreenHeight())
 
-        self._populate_test_chat()
+    def _handle_message(self, text: str) -> None:
+        self.chat.add_entry(text, "user")
 
-    def _populate_test_chat(self) -> None:
-        msgs = [
-            ("agent", "Hello! I'm PixelClaw, your AI image editing assistant. How can I help you today?"),
-            ("user",  "Can you remove the background from this photo?"),
-            ("agent", "Sure! I'll isolate the subject and replace the background with transparency. One moment…"),
-            ("agent", "Done. The background has been removed. The result is in your workspace as a PNG with an alpha channel. Would you like me to replace it with a solid color or a different image instead?"),
-            ("user",  "Make the background a soft gradient from light blue at the top to white at the bottom."),
-            ("agent", "Got it — applying a vertical gradient (light blue → white) behind the subject now."),
-            ("user",  "That looks great! Can you also sharpen the subject a little?"),
-            ("agent", "Applied a moderate unsharp-mask to the subject layer. You can see the result in the main view. Let me know if you'd like it stronger or softer."),
-            ("user",  "Perfect. Now export it as a JPEG at 90% quality."),
-            ("agent", "Exported as output.jpg at 90% quality (2.4 MB). The file has been saved to your downloads folder."),
-        ]
-        for source, text in msgs:
-            self.chat.add_entry(text, source)
+        def _run() -> None:
+            try:
+                reply = self.agent.chat(text)
+            except Exception as e:
+                reply = f"(Error: {e})"
+            self._reply_queue.put(reply)
+
+        threading.Thread(target=_run, daemon=True).start()
 
     def on_files_dropped(self, paths: list[str]) -> None:
         opened, skipped = [], []
@@ -96,6 +97,13 @@ class PixelClawApp(App):
         textures.unload_all()
 
     def update(self) -> None:
+        while not self._reply_queue.empty():
+            reply = self._reply_queue.get_nowait()
+            self.chat.add_entry(reply, "agent")
+            for doc in self.workspace.documents:
+                textures.invalidate_thumbnail(doc)
+                textures.invalidate_display(doc)
+
         if rl.IsWindowResized():
             self.layout.update(rl.GetScreenWidth(), rl.GetScreenHeight())
             self.root.width  = rl.GetScreenWidth()
@@ -113,7 +121,9 @@ class PixelClawApp(App):
 
 
 def main() -> None:
-    PixelClawApp(title="PixelClaw").run()
+    key_file = Path(__file__).parent.parent / "api_key.secret"
+    api_key = key_file.read_text().strip() if key_file.exists() else None
+    PixelClawApp(title="PixelClaw", api_key=api_key).run()
 
 
 if __name__ == "__main__":

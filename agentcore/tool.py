@@ -22,7 +22,10 @@ class Tool(ABC):
 
     def to_api_dict(self) -> dict:
         return {
-            "name": self.name,
-            "description": self.description,
-            "input_schema": self.input_schema,
+            "type": "function",
+            "function": {
+                "name": self.name,
+                "description": self.description,
+                "parameters": self.input_schema,
+            },
         }
