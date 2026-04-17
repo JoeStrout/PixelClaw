@@ -21,8 +21,8 @@ from . import textures
 from .ml_deps import ensure_packages
 from .tools import (ApplyTool, CloseDocsTool, CropTool, EditImageTool, GenerateImageTool,
                     InspectTool, MultiApplyTool, NewFromRegionTool, NewImageTool, PadTool,
-                    RemoveBackgroundTool, RevertTool, RotateTool, ScaleTool, SetActiveTool,
-                    SoftThresholdTool, VersionHistoryTool)
+                    PixelateTool, RemoveBackgroundTool, RevertTool, RotateTool, ScaleTool,
+                    SetActiveTool, SoftThresholdTool, VersionHistoryTool)
 from .file_dialogs import save_image
 from .workspace import ImageWorkspace
 
@@ -39,8 +39,10 @@ _COLOR_CHAT   = (55,  35,  60, 255)
 
 
 class PixelClawApp(App):
-    def __init__(self, *, openai_key: str | None = None, **kwargs) -> None:
+    def __init__(self, *, openai_key: str | None = None,
+                 retro_diffusion_key: str | None = None, **kwargs) -> None:
         self._openai_key = openai_key
+        self._retro_diffusion_key = retro_diffusion_key
         super().__init__(**kwargs)
 
     def get_instructions_path(self) -> Path:
@@ -54,6 +56,7 @@ class PixelClawApp(App):
             ApplyTool(), CloseDocsTool(), CropTool(),
             EditImageTool(self._openai_key), GenerateImageTool(self._openai_key),
             InspectTool(), MultiApplyTool(), NewFromRegionTool(), NewImageTool(), PadTool(),
+            PixelateTool(self._retro_diffusion_key),
             RemoveBackgroundTool(), RevertTool(), RotateTool(), ScaleTool(), SetActiveTool(),
             SoftThresholdTool(), VersionHistoryTool(),
         ]
@@ -197,7 +200,10 @@ def main() -> None:
     api_key = (root / "api_key.secret").read_text().strip() if (root / "api_key.secret").exists() else None
     openai_key_file = root / "openai_key.secret"
     openai_key = openai_key_file.read_text().strip() if openai_key_file.exists() else api_key
-    PixelClawApp(title="PixelClaw", api_key=api_key, openai_key=openai_key).run()
+    rd_key_file = root / "retro_diffusion_key.secret"
+    retro_diffusion_key = rd_key_file.read_text().strip() if rd_key_file.exists() else None
+    PixelClawApp(title="PixelClaw", api_key=api_key, openai_key=openai_key,
+                 retro_diffusion_key=retro_diffusion_key).run()
 
 
 if __name__ == "__main__":

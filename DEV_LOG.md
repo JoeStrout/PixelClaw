@@ -39,3 +39,11 @@ We might want to also include GroundingDINO, a language-object detection model. 
 One big step up for today: control+S or command+S pops up a native "Save As" dialog, and lets you save your image to disk.  So I've started actually using PixelClaw for real purposes today.  Neat!
 
 I've started talking to Claude about options for a "pixelate" tool, since the obvious flow (posterize and scale, or scale and quantize) don't produce great results.  This is apparently not a well-solved problem, or at least good solutions are not widely known.  I'll dig deeper.
+
+...OK, after some digging, I think the best option is Retro Diffusion, which has an amazing model specifically trained for this.  But it requires another API key.
+
+We might want to have a fallback, probably https://github.com/sedthh/pyxelate (which I think may be by the same people, but this is older and free).
+
+Actually, after playing with Retro Diffusion some more, I think it's not going to work well after all.  It seems buggy and even when it works, it fails to follow directions -- I specifically told it to convert a figure, maintaining the same pose and silhouette, and instead it gave me a close-up of one section of the garment (and charged me 18 cents for it).  That's useless.
+
+It's starting to look like this is a pretty big research problem of its own.  I must try to resist falling down this rabbit hole.

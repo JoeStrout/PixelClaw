@@ -10,6 +10,7 @@ from .new_from_region import NewFromRegionTool
 from .new_image import NewImageTool
 from .rotate import RotateTool
 from .pad import PadTool
+from .pixelate import PixelateTool
 from .remove_background import RemoveBackgroundTool
 from .revert import RevertTool
 from .scale import ScaleTool
@@ -19,6 +20,6 @@ from .soft_threshold import SoftThresholdTool
 __all__ = [
     "ApplyTool", "CloseDocsTool", "CropTool", "EditImageTool",
     "GenerateImageTool", "InspectTool", "MultiApplyTool",
-    "NewFromRegionTool", "NewImageTool", "PadTool", "RemoveBackgroundTool", "RevertTool",
+    "NewFromRegionTool", "NewImageTool", "PadTool", "PixelateTool", "RemoveBackgroundTool", "RevertTool",
     "RotateTool", "ScaleTool", "SetActiveTool", "SoftThresholdTool", "VersionHistoryTool",
 ]
