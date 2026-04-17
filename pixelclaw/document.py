@@ -1,9 +1,13 @@
+import base64
+import io
 from pathlib import Path
 
 import numpy as np
 from PIL import Image
 
 from agentcore.document import Document
+
+_THUMBNAIL_SIZE = 128
 
 
 class ImageDocument(Document):
@@ -35,6 +39,15 @@ class ImageDocument(Document):
     def version_history(self) -> list[tuple[int, str]]:
         """Return list of (index, reason) for all versions."""
         return [(i, reason) for i, (_, reason) in enumerate(self._versions)]
+
+    def thumbnail_b64(self) -> str | None:
+        if self.image is None:
+            return None
+        pil = Image.fromarray(self.image, "RGBA")
+        pil.thumbnail((_THUMBNAIL_SIZE, _THUMBNAIL_SIZE), Image.LANCZOS)
+        buf = io.BytesIO()
+        pil.save(buf, format="PNG")
+        return base64.b64encode(buf.getvalue()).decode()
 
     def load(self, path: Path) -> None:
         self.path = path

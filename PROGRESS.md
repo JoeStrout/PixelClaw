@@ -75,3 +75,40 @@ Bootstrapped the project from scratch.
 **Agent instructions** (`pixelclaw/agent_instructions.md`)
 - Documents all tools with examples including flip/rotate, glow (multi-line), grayscale, and alpha-composite patterns.
 - Protocol rules: never announce an action without calling the tool; single-step tasks call the tool immediately with no preamble; `apply` is in-place, `multi_apply` creates/updates a named document.
+
+---
+
+## Apr 17 2026
+
+**New image tools**
+- `generate_image` — creates a new document via OpenAI `gpt-image-1`; posts "Generating image: …" progress message to chat before the API call.
+- `edit_image` — edits the active document via `gpt-image-1`; uses the selection rect as a mask if present; posts progress message; `_nearest_size()` picks the closest supported size.
+- `remove_background` — removes image background using `rembg` neural network (default model `isnet-general-use`; 6 models listed for LLM selection); posts "Removing background…" or "Downloading model…" depending on cache state.
+- `new_image` — creates a blank canvas filled with a solid RGBA color (default transparent); instant, no API call. Agent instructions explicitly tell the LLM to prefer this over `generate_image` for solid fills.
+- `rotate` — rotates the active image by a given number of degrees (CCW positive) around a configurable pivot (default: image center); canvas expands automatically so no content is lost by finding the rotated bounding box of the active (non-transparent) content and growing the canvas to contain it; reports original and new size.
+- `soft_threshold` — cleans up grayscale masks by snapping interior pixels to 0/255 while preserving anti-aliased edges. Works by: thresholding to binary, flood-filling enclosed holes (with edge-pad trick so shapes touching the border are handled), computing per-pixel distance from the binary edge, then blending — original value within `min_dist` px of the edge, snapped value beyond `min_dist` px, interpolated in between. Parameters: `channel` (luminance/alpha/red/green/blue), `threshold` (128), `min_dist` (2), `max_dist` (7).
+- `inspect` — extended to include an 8×8 color map (average RGB per cell as hex) alongside the existing alpha map, so the LLM can identify spatial color and transparency issues.
+- `pad` — default fill color now samples all four corners and uses the most common (if any two agree) or the average; prevents black-bar artifacts when padding images with a uniform background.
+
+**OpenAI integration**
+- `api_key.secret` is the OpenAI key used via LiteLLM (not an Anthropic key). `openai_key.secret` may also be present; if so it takes priority; otherwise `api_key.secret` is used for both the agent and image tools.
+- `ml_deps.py` — `ensure_packages()` installs optional ML dependencies at startup (before `InitWindow`); `rembg[cpu]` installed via pip, `numba` (required by pymatting → rembg) installed via micromamba to get pre-built binaries.
+
+**Vision support**
+- Agent injects a 128×128 base64 PNG thumbnail of the active document into the last user message as a `detail:low` image URL, enabling vision-capable models to see what they're working on.
+- `Agent._use_vision` flag; `_call_llm()` auto-detects vision-related API errors, disables vision, and retries transparently.
+- `Context.message_queue` (thread-safe `queue.Queue`) + `post_message()` — tools post progress strings from background threads; `PixelClawApp.update()` drains the queue into the chat panel each frame.
+- Post-operation verification rule added to agent instructions: after any visual operation, call `inspect` before reporting success.
+
+**UI — checkerboard background**
+- `MainPanel` loads `pixelclaw/resources/backgroundPattern.png` as a tiled texture behind the active image so transparency is visually apparent. Uses `TEXTURE_WRAP_REPEAT` + `DrawTexturePro` with an oversized source rect (no `DrawTextureTiled` in this Raylib version).
+
+**File save (Cmd+S / Ctrl+S)**
+- `file_dialogs.py` — `save_image()` shows a native save dialog: `NSSavePanel` via PyObjC on macOS, tkinter fallback on other platforms. PyObjC kept strictly inside `file_dialogs.py`.
+- Layout-aware key detection: `_find_key_for_char('s')` scans key codes 32–350 using `glfwGetKeyName(key, 0)` (layout-aware) to find the code that produces `'s'` in the current OS keyboard layout. Runs once in `on_start()` after `InitWindow`. Correctly handles Dvorak, Colemak, etc.
+- JPEG save composites on a white RGB background before saving (no alpha channel in JPEG).
+
+**InputField improvements**
+- `Alt+Backspace` — delete word to the left of cursor.
+- `Alt+Delete` — delete word to the right of cursor.
+- **Focus bug fix** — `Panel.is_focused` previously only checked one level up the parent chain; a click on the main panel would update `root._focused_child` but leave `ChatPanel._focused_child` still pointing at `InputField`, causing the cursor to appear focused while keyboard events were dead-ended elsewhere. Fixed by walking the full ancestor chain to verify every level agrees.

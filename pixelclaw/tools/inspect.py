@@ -83,20 +83,33 @@ class InspectTool(Tool):
         else:
             lines.append("Content bbox: none (fully transparent)")
 
-        # 8×8 hex alpha map
+        # 8×8 hex alpha map + color map
         grid_h, grid_w = 8, 8
         cell_h = height / grid_h
         cell_w = width  / grid_w
-        lines.append("Alpha map (8×8, 0=transparent F=opaque):")
+        alpha_rows, color_rows = [], []
         for gr in range(grid_h):
-            row_str = ""
             r0c = int(gr * cell_h)
             r1c = max(r0c + 1, int((gr + 1) * cell_h))
+            alpha_row, color_row = "", []
             for gc in range(grid_w):
                 c0c = int(gc * cell_w)
                 c1c = max(c0c + 1, int((gc + 1) * cell_w))
-                mean_a = alpha[r0c:r1c, c0c:c1c].mean()
-                row_str += _HEX[min(15, int(mean_a / 256 * 16))]
-            lines.append("  " + row_str)
+                cell = region[r0c:r1c, c0c:c1c]
+                mean_a = cell[:, :, 3].mean()
+                alpha_row += _HEX[min(15, int(mean_a / 256 * 16))]
+                r = int(cell[:, :, 0].mean())
+                g = int(cell[:, :, 1].mean())
+                b = int(cell[:, :, 2].mean())
+                color_row.append(f"{r:02X}{g:02X}{b:02X}")
+            alpha_rows.append(alpha_row)
+            color_rows.append(" ".join(color_row))
+
+        lines.append("Alpha map (8×8, 0=transparent F=opaque):")
+        for row in alpha_rows:
+            lines.append("  " + row)
+        lines.append("Color map (8×8, avg RGB per cell as RRGGBB hex):")
+        for row in color_rows:
+            lines.append("  " + row)
 
         return "\n".join(lines)

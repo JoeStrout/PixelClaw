@@ -11,6 +11,10 @@ class Document(ABC):
     def name(self) -> str:
         return self.path.name if self.path else "Untitled"
 
+    def thumbnail_b64(self) -> str | None:
+        """Return a base64-encoded PNG thumbnail for vision-capable LLMs, or None."""
+        return None
+
     @abstractmethod
     def load(self, path: Path) -> None: ...
 

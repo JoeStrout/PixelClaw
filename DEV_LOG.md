@@ -24,3 +24,18 @@ And, we haven't started getting into hooking up more powerful image models.  I'd
 Oh man, even sticking to OpenAI's image editing platform gives us some powerful abilities: "make this look like watercolor" or "change this to nighttime".  It also does masked inpainting or outpainting.  It can replace a shirt with a jacket, remove an object from the background, and do other fancy things.  It does not seem to support background segmentation directly, though -- their own cookbooks use SAM to do that, and then pass the resulting mask into gpt-image for inpainting/outpainting.
 
 So, a good near-term goal would be to get SAM and gpt-image hooked up; these two together should create some real magic.
+
+
+## Apr 17 2026
+
+I hooked up gpt-image today, and associated tools (along with some other new tools like rotate and soft_threshold).  It's working really well.  You can use PixelClaw a lot like you'd use ChatGPT, just telling it to create and alter images; but then you also have access to the simpler transformations (resizing, scaling, etc.).  We also hooked up a package called rembg, specialized for removing backgrounds; that works really well too.
+
+The value proposition would get even stronger if we added some basic editing tools as well, similar to at least what GraphicConverter provides.  Maybe the buttons at the top include an "Edit" button; when you click that, editing tools appear, and you get a more fine-grained undo/redo stack while still working on just one version of the image.  Then you click the same button again to close the editing session, or use an LLM command, and it commits that version and starts a new one.
+
+I haven't hooked up SAM yet because it's not really useful until we have some interactive tools, some way to point.  Of course the simple way would be to just pass the pixel coordinates the mouse is over along with any command, so then we can say things like "what is the color here" or (with SAM plus edit_image) "remove this object".  When we do this, we need to look at newer/lighter variants (MobileSAM or EfficientSAM).
+
+We might want to also include GroundingDINO, a language-object detection model.  But it's too large to be practical as a local model; we'd need to find an online version via Roboflow, Replicate, or HuggingFace.  I don't love requiring the user to get another account and API key, though.  And neither Claude nor I can really think of a good use case for it.
+
+One big step up for today: control+S or command+S pops up a native "Save As" dialog, and lets you save your image to disk.  So I've started actually using PixelClaw for real purposes today.  Neat!
+
+I've started talking to Claude about options for a "pixelate" tool, since the obvious flow (posterize and scale, or scale and quantize) don't produce great results.  This is apparently not a well-solved problem, or at least good solutions are not widely known.  I'll dig deeper.

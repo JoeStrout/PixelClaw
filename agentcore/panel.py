@@ -93,9 +93,14 @@ class Panel:
     @property
     def is_focused(self) -> bool:
         """True if keyboard events are currently routed to this panel (i.e. it is the focused leaf)."""
-        if self.parent is not None and self.parent._focused_child is not self:
-            return False
-        return self._focused_child is None
+        if self._focused_child is not None:
+            return False  # not the leaf
+        node = self
+        while node.parent is not None:
+            if node.parent._focused_child is not node:
+                return False
+            node = node.parent
+        return True
 
     def set_focus(self, child: Panel | None) -> None:
         """Direct keyboard focus to a child (or clear it with None)."""

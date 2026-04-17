@@ -48,6 +48,8 @@ class InputField(Panel):
     Shift+any-movement         extend selection
     Home / End  or  Up / Down  jump to start / end of field
     Backspace / Delete         delete selection or adjacent character (auto-repeat)
+    Alt+Backspace              delete word to the left
+    Alt+Delete                 delete word to the right
     Ctrl+A                     select all
     Ctrl+C                     copy selection
     Ctrl+X                     cut selection
@@ -324,7 +326,11 @@ class InputField(Panel):
         # --- Deletion (auto-repeat via IsKeyPressedRepeat) ---
         if rl.IsKeyPressedRepeat(rl.KEY_BACKSPACE) or key == rl.KEY_BACKSPACE:
             if not self._delete_selection():
-                if self.cursor_pos > 0:
+                if _alt() and self.cursor_pos > 0:
+                    target = self._word_left(self.cursor_pos)
+                    self.text = self.text[:target] + self.text[self.cursor_pos:]
+                    self.cursor_pos = target
+                elif self.cursor_pos > 0:
                     self.text = self.text[:self.cursor_pos - 1] + self.text[self.cursor_pos:]
                     self.cursor_pos -= 1
             self._clamp_scroll()
@@ -332,7 +338,10 @@ class InputField(Panel):
 
         if rl.IsKeyPressedRepeat(rl.KEY_DELETE) or key == rl.KEY_DELETE:
             if not self._delete_selection():
-                if self.cursor_pos < len(self.text):
+                if _alt() and self.cursor_pos < len(self.text):
+                    target = self._word_right(self.cursor_pos)
+                    self.text = self.text[:self.cursor_pos] + self.text[target:]
+                elif self.cursor_pos < len(self.text):
                     self.text = self.text[:self.cursor_pos] + self.text[self.cursor_pos + 1:]
             self._clamp_scroll()
             return True

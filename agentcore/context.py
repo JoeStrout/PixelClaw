@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import queue
 import time
 from abc import ABC
 from dataclasses import dataclass, field
@@ -43,6 +44,7 @@ class Context(ABC, Generic[D]):
         self.current_task: str | None         = None
         self.chat_history: list[dict]         = []   # LiteLLM/OpenAI message format
         self.agent_reason: str                = ""   # set by Agent before each tool dispatch
+        self.message_queue: queue.Queue[str]  = queue.Queue()  # tool → chat panel
 
     # ------------------------------------------------------------------
     # Document management
@@ -66,6 +68,15 @@ class Context(ABC, Generic[D]):
     # ------------------------------------------------------------------
     # History helpers
     # ------------------------------------------------------------------
+
+    def render_thumbnail(self) -> str | None:
+        """Return a base64 PNG thumbnail of the active document, or None."""
+        doc = self.active_document
+        return doc.thumbnail_b64() if doc is not None else None
+
+    def post_message(self, text: str) -> None:
+        """Post a status message to the chat panel from a background thread."""
+        self.message_queue.put(text)
 
     def add_history(self, kind: str, **data) -> HistoryEntry:
         """Append a history entry and return it."""

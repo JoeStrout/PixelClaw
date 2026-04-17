@@ -4,6 +4,28 @@ from agentcore.tool import Tool
 from agentcore.workspace import Workspace
 
 
+def _sample_fill_color(src: np.ndarray) -> list[int]:
+    """Return a fill color by sampling all four corners.
+
+    Uses the most common corner color if any two agree; otherwise averages all four.
+    """
+    h, w = src.shape[:2]
+    corners = [
+        src[0,   0  ].tolist(),
+        src[0,   w-1].tolist(),
+        src[h-1, 0  ].tolist(),
+        src[h-1, w-1].tolist(),
+    ]
+    counts: dict[tuple, int] = {}
+    for c in corners:
+        key = tuple(c)
+        counts[key] = counts.get(key, 0) + 1
+    best = max(counts, key=lambda k: counts[k])
+    if counts[best] >= 2:
+        return list(best)
+    return [round(sum(c[i] for c in corners) / 4) for i in range(4)]
+
+
 class PadTool(Tool):
     @property
     def name(self) -> str:
@@ -29,7 +51,7 @@ class PadTool(Tool):
                     "type": "array",
                     "items": {"type": "integer", "minimum": 0, "maximum": 255},
                     "minItems": 4, "maxItems": 4,
-                    "description": "Fill color as [R, G, B, A]. Defaults to transparent black.",
+                    "description": "Fill color as [R, G, B, A]. Defaults to the most common corner color of the source image.",
                 },
             },
             "required": ["top", "bottom", "left", "right"],
@@ -43,8 +65,8 @@ class PadTool(Tool):
         if any(v < 0 for v in (top, bottom, left, right)):
             return "Error: padding values must be non-negative."
 
-        rgba = list(color) if color else [0, 0, 0, 0]
         src = doc.image
+        rgba = list(color) if color else _sample_fill_color(src)
         oh, ow = src.shape[:2]
         nh, nw = oh + top + bottom, ow + left + right
 

@@ -9,7 +9,10 @@ dependencies:
   - numpy
   - scipy
   - scikit-image
+  - numba          # required by pymatting → rembg; conda has pre-built binaries
   - pip:
     - raylib
     - anthropic
     - litellm
+    - rembg[cpu]
+    - pyobjc-framework-Cocoa; sys_platform == "darwin"

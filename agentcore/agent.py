@@ -13,6 +13,11 @@ MAX_HISTORY_MESSAGES = 40
 DEBUG_DIR = Path("debug_output")
 
 
+def _is_vision_error(e: Exception) -> bool:
+    msg = str(e).lower()
+    return any(k in msg for k in ("image", "vision", "multimodal", "unsupported content type"))
+
+
 class Agent:
     def __init__(self, context: Context, tools: list[Tool],
                  model: str = DEFAULT_MODEL, api_key: str | None = None,
@@ -23,6 +28,7 @@ class Agent:
         self.api_key = api_key
         self.instructions = instructions
         self._call_count = 0
+        self._use_vision = True
         if DEBUG_DIR.exists():
             shutil.rmtree(DEBUG_DIR)
         DEBUG_DIR.mkdir()
@@ -35,7 +41,36 @@ class Agent:
         if ctx:
             messages.append({"role": "system", "content": ctx})
         messages.extend(self.context.chat_history)
+
+        if self._use_vision:
+            thumbnail = self.context.render_thumbnail()
+            if thumbnail:
+                for i in range(len(messages) - 1, -1, -1):
+                    if messages[i]["role"] == "user":
+                        messages[i] = {
+                            "role": "user",
+                            "content": [
+                                {"type": "text", "text": messages[i]["content"]},
+                                {"type": "image_url", "image_url": {
+                                    "url": f"data:image/png;base64,{thumbnail}",
+                                    "detail": "low",
+                                }},
+                            ],
+                        }
+                        break
+
         return messages
+
+    def _call_llm(self, **kwargs) -> object:
+        try:
+            return litellm.completion(**kwargs)
+        except Exception as e:
+            if self._use_vision and _is_vision_error(e):
+                print("[agent] Vision not supported by this model; disabling.", flush=True)
+                self._use_vision = False
+                kwargs["messages"] = self._build_messages()
+                return litellm.completion(**kwargs)
+            raise
 
     def _trim_history(self) -> None:
         """Drop oldest user-turn groups from chat_history when it grows too long."""
@@ -73,7 +108,7 @@ class Agent:
 
             self._write_debug("request", {k: v for k, v in kwargs.items() if k != "api_key"})
 
-            response = litellm.completion(**kwargs)
+            response = self._call_llm(**kwargs)
 
             try:
                 self._write_debug("response", response.model_dump())

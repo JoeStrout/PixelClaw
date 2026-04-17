@@ -9,11 +9,9 @@ This project aims to be a sophisticated AI agent specialized for manipulating im
 - Convert from one format to another
 - Even generate new images, just by describing what you want
 
-Or that's the goal, anyway.  Some of those features are not yet implemented, but a lot of basic image manipulation is, as you can see here:
+![PixelClaw screen shot](screenshots/alphabear.png)
 
-![PixelClaw screen shot](screenshots/pixelclaw-screenshot.png)
-
-That's not a mock-up; this was an actual image editing session done with PixelClaw.
+That's not a mock-up; this was an actual image editing session done with PixelClaw.  See the [screenshots](screenshots/) folder for more.
 
 ## Give us a star!
 
