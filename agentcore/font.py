@@ -6,7 +6,7 @@ import raylib as rl
 charset = (
             " !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`"
             "abcdefghijklmnopqrstuvwxyz{|}~"
-            "“”‘’—–…•×±"
+            "“”‘’—–…•×±µσπ→"
         )
 codepoints = None
 codepoints_arr = None

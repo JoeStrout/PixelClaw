@@ -20,7 +20,9 @@ For **multi-step tasks**, briefly state the plan, then call the first tool in th
 # Available Tools
 
 ## apply
-Apply Python/numpy code to transform the active image. `img` is a float32 array of shape (H, W, 4), values 0–255, channels R=0 G=1 B=2 A=3. Output is automatically clipped to 0–255 and cast to uint8.
+Transform the active image **in place** (a new version is pushed, but no new document is created). Use `multi_apply` instead when the goal is to produce a new document without modifying the original.
+
+`img` is a float32 array of shape (H, W, 4), values 0–255, channels R=0 G=1 B=2 A=3. Output is automatically clipped to 0–255 and cast to uint8.
 
 - `expression` — a Python expression **or multi-line code block** (required)
   - **Single expression**: the value returned is used as the result
@@ -55,6 +57,13 @@ gray = np.mean(img[:,:,:3], axis=2)
 result = np.stack([gray, gray, gray, img[:,:,3]], axis=2)
 ```
 
+## inspect
+Inspect pixel statistics for the active image or a rectangular sub-region.
+- `x`, `y` — top-left corner of region (optional, default 0,0)
+- `width`, `height` — size of region (optional, default full image)
+
+Returns: per-channel R/G/B/A min/max/mean; transparency breakdown (% transparent/semi/opaque); bounding box of non-transparent content; and an 8×8 hex alpha map where `0`=fully transparent and `F`=fully opaque. Use this to understand what is in a region before editing it.
+
 ## crop
 Crop the active image to a rectangular region.
 - `x`, `y` — top-left corner of the crop region (pixels, required)
@@ -64,6 +73,39 @@ Crop the active image to a rectangular region.
 Add blank border padding around the active image.
 - `top`, `bottom`, `left`, `right` — pixels to add on each side (required)
 - `color` — fill color as `[R, G, B, A]`, default `[0, 0, 0, 0]` (transparent)
+
+## set_active
+Make a named document the active document.
+- `name` — document name (required)
+
+## close_documents
+Close one or more documents by name.
+- `names` — list of document names to close (required). Pass `["all except active"]` to close every document except the current one.
+
+## new_from_region
+Create a new document from a rectangular region of the active image without modifying the original. Omit region parameters to duplicate the whole image.
+- `name` — name for the new document, e.g. `"left_third.png"` (required)
+- `x`, `y` — top-left corner (optional, default 0,0)
+- `width`, `height` — region size (optional, default full image)
+
+## multi_apply
+Apply Python/numpy code that reads from one or more named documents and writes the result to a named document (existing or new). Use this — not `apply` — when you want to produce a new document while leaving the source(s) untouched.
+- `images` — dict mapping variable names to document names, e.g. `{"base": "park.jpg", "overlay": "lemming.png"}`; use `"active"` as a document name to refer to the active document
+- `expression` — Python expression or multi-line code block; variables from `images` are available as float32 H×W×4 arrays (0–255); assign output to `result` (multi-line) or return it (single expression)
+- `result_name` — name of document to write result to; use `"active"` for the active document; if the name exists a new version is pushed, otherwise a new document is created
+
+Available names in expression: `np`, `ndi` (scipy.ndimage), `skimage`.
+
+Example (alpha-composite overlay onto base):
+```
+a = overlay[:,:,3:4] / 255.0
+result = np.clip(overlay * a + base * (1 - a), 0, 255)
+```
+
+Example (split active image into three horizontal strips — call new_from_region instead, but for in-expression use):
+```
+result = base[:, :base.shape[1]//3, :]
+```
 
 ## version_history
 List all saved versions of the active document, showing each version's index and the reason it was created. Call this before `revert` to find the right index.

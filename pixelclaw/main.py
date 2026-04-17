@@ -16,7 +16,9 @@ from .dockpanel import DockPanel
 from .layout import LayoutManager
 from .mainpanel import MainPanel
 from . import textures
-from .tools import ApplyTool, CropTool, PadTool, RevertTool, ScaleTool, VersionHistoryTool
+from .tools import (ApplyTool, CloseDocsTool, CropTool, InspectTool, MultiApplyTool,
+                    NewFromRegionTool, PadTool, RevertTool, ScaleTool, SetActiveTool,
+                    VersionHistoryTool)
 from .workspace import ImageWorkspace
 
 _SUPPORTED_EXTENSIONS = {".png", ".jpg", ".jpeg", ".gif", ".bmp", ".tiff", ".tif", ".webp"}
@@ -39,7 +41,11 @@ class PixelClawApp(App):
         return ImageWorkspace()
 
     def create_tools(self) -> list[Tool]:
-        return [ApplyTool(), CropTool(), PadTool(), ScaleTool(), VersionHistoryTool(), RevertTool()]
+        return [
+            ApplyTool(), CloseDocsTool(), CropTool(), InspectTool(),
+            MultiApplyTool(), NewFromRegionTool(), PadTool(), RevertTool(),
+            ScaleTool(), SetActiveTool(), VersionHistoryTool(),
+        ]
 
     def on_start(self) -> None:
         self._reply_queue: queue.Queue[str] = queue.Queue()

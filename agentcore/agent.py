@@ -1,7 +1,9 @@
 import json
+import shutil
 from pathlib import Path
 
 import litellm
+litellm.suppress_debug_info = True
 
 from .context import Context
 from .tool import Tool
@@ -21,6 +23,9 @@ class Agent:
         self.api_key = api_key
         self.instructions = instructions
         self._call_count = 0
+        if DEBUG_DIR.exists():
+            shutil.rmtree(DEBUG_DIR)
+        DEBUG_DIR.mkdir()
 
     def _build_messages(self) -> list[dict]:
         messages = []
@@ -103,6 +108,7 @@ class Agent:
                 try:
                     args = json.loads(tc.function.arguments)
                     if tool:
+                        print(f"[tool] {tc.function.name}({tc.function.arguments})")
                         result = tool.execute(self.context, **args)
                     else:
                         raise ValueError(f"unknown tool '{tc.function.name}'")

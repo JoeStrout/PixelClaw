@@ -35,15 +35,15 @@ Bootstrapped the project from scratch.
 
 ---
 
-## Apr 16–17 2026 (continued)
+## Apr 16 2026 (continued)
 
 **LLM backend & agent loop**
-- Switched from Anthropic SDK to **LiteLLM** for provider-agnostic function-calling; default model `gpt-5.4-nano` (key read from `api_key.secret`).
-- `Agent` rebuilt around OpenAI-style `chat/completions`: `_build_messages()` assembles `[system(instructions), system(context), *history]` fresh each call; `_trim_history()` drops oldest user-turn groups when history exceeds 40 messages; `_write_debug()` writes `debug_output/NNNN_request.json` + `NNNN_response.json` for inspection.
+- Switched from Anthropic SDK to **LiteLLM** for provider-agnostic function-calling; default model `gpt-5.4-nano` (key read from `api_key.secret`); `litellm.suppress_debug_info = True` silences startup noise.
+- `Agent` rebuilt around OpenAI-style `chat/completions`: `_build_messages()` assembles `[system(instructions), system(context), *history]` fresh each call; `_trim_history()` drops oldest user-turn groups when history exceeds 40 messages; `_write_debug()` writes `debug_output/NNNN_request.json` + `NNNN_response.json` for inspection; debug folder is cleared on each launch.
 - `Tool.to_api_dict()` now emits OpenAI function-calling schema (`{"type":"function","function":{...}}`).
 - `Context.agent_reason` field — set by `Agent` to the model's text content before each tool dispatch, so tools can record the intent alongside the image version.
 - `Context.render_context()` default implementation; overridden in `ImageWorkspace` to report image size, channel layout, dtype, version count, and selection rect.
-- Agent messages printed to terminal as they arrive (`[agent] …`).
+- Agent messages and tool invocations printed to terminal as they arrive (`[agent] …` / `[tool] name(args)`).
 - Background threading: `_handle_message` starts a daemon thread; `update()` drains `_reply_queue` on the main thread and invalidates textures there (all OpenGL calls on main thread only — documented as architectural rule in `CLAUDE.md`).
 - `get_instructions_path()` hook on `App`; `PixelClawApp` points to `pixelclaw/agent_instructions.md`.
 
@@ -56,16 +56,22 @@ Bootstrapped the project from scratch.
 - Fixed `load()` to use `np.array()` (copy) instead of `np.asarray()` (view into PIL buffer) to avoid GC-related data corruption.
 
 **LLM-callable tools**
+- `apply` — execute arbitrary Python/numpy code against the active image **in place**; supports single expressions and multi-line code blocks (assigns to `result`); `np`, `ndi` (scipy.ndimage), and `skimage` available. Instructions note this modifies the active document — use `multi_apply` to produce a new document.
+- `inspect` — report per-channel min/max/mean, transparency breakdown, content bounding box, and an 8×8 hex alpha map for spatial orientation; optional sub-region.
 - `crop` — crop to rectangle; reports resulting version index.
-- `pad` — add transparent border; performs **alpha bleed** (fills transparent border pixels with the nearest edge pixel's RGB) so edge effects like glow work correctly.
+- `pad` — add border; performs **alpha bleed** (fills transparent border pixels with nearest edge pixel's RGB) so edge effects like glow work correctly. Root-caused via diagnostic instrumentation: tool-padded images had `[0,0,0,0]` in transparent zone vs. GraphicConverter's `[112,112,112,0]`, causing invisible glow.
 - `scale` — resize with nearest/bilinear/lanczos resampling; derives missing dimension from aspect ratio.
-- `apply` — execute arbitrary Python/numpy code against the image; supports single expressions and multi-line code blocks (assigns to `result`); `np`, `ndi` (scipy.ndimage), and `skimage` available.
 - `version_history` — list all versions with index and reason.
 - `revert` — revert to a given version index, discarding later ones.
+- `set_active` — change the active document by name.
+- `close_documents` — close named documents; accepts `["all except active"]` as a shorthand.
+- `new_from_region` — create a new document from a region of the active image without modifying the original; omit region args to duplicate.
+- `multi_apply` — apply Python/numpy code reading from multiple named documents; write result to a named or new document. Accepts `"active"` as a special document name in both `images` and `result_name` to avoid needing to track the active document's filename across multi-step turns.
 
 **Display fixes**
 - `textures.py`: display textures use `TEXTURE_FILTER_POINT` (sharp pixels); thumbnails use `TEXTURE_FILTER_BILINEAR`.
 - `font.py`: extended character set (curly quotes, em-dash, en-dash, ellipsis, etc.) loaded via `codepoints_arr`; fixed `global` declaration so module-level variables are updated correctly on first use.
 
-**Agent instructions**
-- `pixelclaw/agent_instructions.md`: documents all six tools with examples; multi-line `apply` example shows correct yellow-glow pattern; protocol rule added: "never announce an action without also calling the tool in the same response."
+**Agent instructions** (`pixelclaw/agent_instructions.md`)
+- Documents all tools with examples including flip/rotate, glow (multi-line), grayscale, and alpha-composite patterns.
+- Protocol rules: never announce an action without calling the tool; single-step tasks call the tool immediately with no preamble; `apply` is in-place, `multi_apply` creates/updates a named document.
