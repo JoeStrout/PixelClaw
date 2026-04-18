@@ -1,4 +1,6 @@
 from .apply import ApplyTool
+from .rename_document import RenameDocumentTool
+from .save_document import SaveDocumentTool
 from .close_docs import CloseDocsTool
 from .crop import CropTool
 from .edit_image import EditImageTool
@@ -24,6 +26,7 @@ from .soft_threshold import SoftThresholdTool
 
 __all__ = [
     "ApplyTool", "CloseDocsTool", "CropTool", "EditImageTool",
+    "RenameDocumentTool", "SaveDocumentTool",
     "GenerateImageTool", "InspectTool", "MultiApplyTool",
     "NewFromRegionTool", "NewImageTool", "PadTool", "PixelateTool", "PosterizeTool",
     "QueryTool", "RemoveBackgroundTool", "RevertTool",

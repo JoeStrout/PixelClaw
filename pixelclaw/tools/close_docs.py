@@ -11,7 +11,8 @@ class CloseDocsTool(Tool):
     def description(self) -> str:
         return (
             "Close one or more documents by name. "
-            "Pass [\"all except active\"] to close every document except the current one."
+            "Pass [\"active\"] to close the current document, "
+            "or [\"all except active\"] to close every document except the current one."
         )
 
     @property
@@ -23,8 +24,9 @@ class CloseDocsTool(Tool):
                     "type": "array",
                     "items": {"type": "string"},
                     "description": (
-                        "List of document names to close, "
-                        "or [\"all except active\"] as a special value."
+                        "List of document names to close. "
+                        "Special values: \"active\" (close the current document), "
+                        "\"all except active\" (close everything except the current document)."
                     ),
                 },
             },
@@ -35,6 +37,9 @@ class CloseDocsTool(Tool):
         if names == ["all except active"]:
             active = workspace.active_document
             to_close = [d.name for d in workspace.documents if d is not active]
+        elif names == ["active"]:
+            active = workspace.active_document
+            to_close = [active.name] if active else []
         else:
             to_close = names
 

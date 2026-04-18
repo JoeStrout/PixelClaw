@@ -168,10 +168,6 @@ Bootstrapped the project from scratch.
 - `debug_output/` directory documented as the primary debugging tool (numbered request/response JSON pairs, cleared on each launch).
 - "How to add a new tool" checklist added with all four required steps (create file, register in `__init__.py`, import + instantiate in `main.py`, document in `agent_instructions.md`), with a note that missing step 4 is the most common mistake.
 
----
-
-## Apr 18 2026 (continued)
-
 **Pixel info display in MainPanel**
 - When the mouse hovers over the image, the bottom gutter shows `(x, y)  #RRGGBBAA` — pixel coordinates and HTML color with alpha.
 - Each hex pair is drawn in its own color: RR in red, GG in green, BB in blue, AA in gray.
@@ -220,4 +216,64 @@ Bootstrapped the project from scratch.
 **`rotate` tool — 90° special case**
 - Angles within 0.01° of a 90° multiple (90, 180, 270, and their negatives) now use PIL's lossless `transpose()` rather than the padded-canvas rotation path.
 - A 1024×683 image rotated 90° or -90° now produces exactly 683×1024 with no padding.
+
+## Apr 18 2026 (continued — toolbar, file ops, LLM tools)
+
+**`ToolbarButton` class** (`agentcore/toolbarbutton.py`)
+- New `Panel` subclass that draws a single button from a texture atlas (96×96 cells) with a bold text label below the icon.
+- Four visual states: normal, hover, pressed, disabled — each with a distinct tint.
+- `alt_label` attribute: if set and `alt_held` is True, the label swaps to the alternate text (e.g. "Save" → "Save As") without changing behavior.
+- `alt_held` is set externally each frame by the parent panel (not queried inside `draw()`) to keep `agentcore` platform-agnostic.
+- `on_click` callback fired on mouse-release only if the press originated inside the button.
+
+**`HeaderPanel`** (`pixelclaw/headerpanel.py`)
+- Replaces the plain `Panel` used for the header.
+- Three `ToolbarButton` children: Open (col 0), Save (col 1, alt_label "Save As"), Close (col 2).
+- `setup(workspace, on_open, on_save, on_close_doc)` called after layout; loads a toolbar icon atlas and the app icon texture, both with bilinear filtering.
+- `draw()` updates `disabled` state for Save/Close (require an active document) and pushes the current Option-key state to `_btn_save.alt_held`.
+- Title "PixelClaw" drawn in bold font; `pixelclaw_icon.png` drawn at 48 px (half of its 96 px source) immediately left of the title, vertically centered.
+- `unload()` frees both textures.
+
+**macOS Option/Alt key detection** (`pixelclaw/headerpanel.py`)
+- `rl.IsKeyDown(KEY_LEFT_ALT)` is unreliable on macOS because GLFW intercepts the Option key for dead-key composition before reporting it.
+- Added module-level `_alt_is_held()` that queries `NSEvent.modifierFlags() & NSAlternateKeyMask` via PyObjC on macOS; falls back to `rl.IsKeyDown` on other platforms.
+- This same function is imported into `main.py` for the Save keyboard shortcut path.
+
+**Native file dialogs** (`pixelclaw/file_dialogs.py`)
+- `open_images()`: macOS uses `NSOpenPanel` (multi-select, filtered to image types); other platforms use tkinter's `askopenfilenames`.
+- `save_image(default_name)`: macOS uses `NSSavePanel`; fallback uses tkinter's `asksaveasfilename`.
+- `_refocus_app()`: calls `NSApp.activateIgnoringOtherApps_(True)` unconditionally after every `runModal()` call (both OK and Cancel) so the Raylib window regains keyboard focus after the dialog closes.
+
+**`Document.file_path`** (`agentcore/document.py`, `pixelclaw/document.py`)
+- Added `file_path: Path | None = None` to `Document.__init__` — distinct from `path` (which tools use as a display name).
+- `ImageDocument.load()` and `save()` now set `self.file_path = path`.
+- This separation matters because tools like `generate_image` set `doc.path = Path("generated.png")` without any real on-disk file.
+
+**Smart Save behavior** (`pixelclaw/main.py`)
+- If `doc.file_path` is set and Option is not held: save directly to the existing path (no dialog).
+- If `doc.file_path` is not set, or Option is held: open the Save dialog (defaulting to current filename).
+- Before overwriting, the original is moved to `<stem>.bak<ext>` — but only if that .bak file does not already exist.
+- Saving as JPEG: image is alpha-composited onto a white background before encoding.
+- After a successful save: `doc.path`, `doc.file_path`, and `doc.dirty` are updated.
+
+**Keyboard shortcuts** (`pixelclaw/main.py`)
+- Cmd/Ctrl+O: Open file dialog.
+- Cmd/Ctrl+S: Save (same smart-save logic as the button).
+- Cmd/Ctrl+W: Close active document.
+- All three use `_find_key_for_char()` (layout-aware via `glfwGetKeyName`) so they work correctly on Dvorak, Colemak, etc.
+- `_mod()` is re-evaluated fresh before each shortcut check (not cached) to avoid stale modifier state after a blocking native dialog returns.
+
+**`save_document` tool** (`pixelclaw/tools/save_document.py`)
+- LLM-callable tool: saves a document (active or named) to its current path or a specified path.
+- Path resolution: absolute paths used as-is; bare filenames placed in `doc.file_path.parent`; no extension defaults to `.png`.
+- Same .bak backup and JPEG white-composite logic as the UI Save action.
+- Never shows a dialog.
+
+**`rename_document` tool** (`pixelclaw/tools/rename_document.py`)
+- LLM-callable tool: renames a document's display name and, if it has an on-disk file, renames the file too.
+- If `new_name` has no extension, the current extension is preserved.
+- Updates both `doc.path` and `doc.file_path`.
+
+**`close_documents` tool update**
+- Added `"active"` as a special value alongside `"all except active"`, so the LLM can close the current document with a single short invocation.
 

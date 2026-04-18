@@ -9,6 +9,16 @@ import sys
 from pathlib import Path
 
 
+def open_images() -> list[Path]:
+    """Show a native open dialog for image files.
+
+    Returns a list of chosen Paths, or an empty list if the user cancelled.
+    """
+    if sys.platform == "darwin":
+        return _open_darwin()
+    return _open_tkinter()
+
+
 def save_image(default_name: str) -> Path | None:
     """Show a native save dialog for image files.
 
@@ -27,10 +37,32 @@ def save_image(default_name: str) -> Path | None:
 
 
 # ---------------------------------------------------------------------------
-# macOS — NSSavePanel via PyObjC
+# macOS — NSOpenPanel / NSSavePanel via PyObjC
 # ---------------------------------------------------------------------------
 
 _IMAGE_TYPES_DARWIN = ["png", "jpg", "jpeg", "webp", "bmp", "tiff", "tif"]
+
+
+def _refocus_app() -> None:
+    from AppKit import NSApp
+    NSApp.activateIgnoringOtherApps_(True)
+
+
+def _open_darwin() -> list[Path]:
+    from AppKit import NSOpenPanel, NSModalResponseOK
+
+    panel = NSOpenPanel.openPanel()
+    panel.setTitle_("Open Image")
+    panel.setAllowsMultipleSelection_(True)
+    panel.setCanChooseFiles_(True)
+    panel.setCanChooseDirectories_(False)
+    panel.setAllowedFileTypes_(_IMAGE_TYPES_DARWIN)
+
+    result = panel.runModal()
+    _refocus_app()
+    if result == NSModalResponseOK:
+        return [Path(url.path()) for url in panel.URLs()]
+    return []
 
 
 def _save_darwin(default_name: str) -> Path | None:
@@ -44,6 +76,7 @@ def _save_darwin(default_name: str) -> Path | None:
     panel.setExtensionHidden_(False)
 
     result = panel.runModal()
+    _refocus_app()
     if result == NSModalResponseOK:
         return Path(panel.URL().path())
     return None
@@ -61,6 +94,19 @@ _IMAGE_FILETYPES_TK = [
     ("TIFF image", "*.tiff *.tif"),
     ("All files",  "*.*"),
 ]
+
+
+def _open_tkinter() -> list[Path]:
+    import tkinter as tk
+    from tkinter import filedialog
+
+    root = tk.Tk()
+    root.withdraw()
+    root.attributes("-topmost", True)
+
+    paths = filedialog.askopenfilenames(filetypes=_IMAGE_FILETYPES_TK)
+    root.destroy()
+    return [Path(p) for p in paths]
 
 
 def _save_tkinter(default_name: str) -> Path | None:

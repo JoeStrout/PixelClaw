@@ -5,6 +5,7 @@ from pathlib import Path
 class Document(ABC):
     def __init__(self, path: Path | None = None):
         self.path = path
+        self.file_path: Path | None = None  # set only when loaded from or saved to disk
         self.dirty = False
 
     @property

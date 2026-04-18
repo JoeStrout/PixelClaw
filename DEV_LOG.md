@@ -60,5 +60,10 @@ I'm proceeding today mostly by testing and fixing whatever jumps out at me.  Soo
 - simple markdown rendering for the speech bubbles
 - an indeterminate progress indicator during long tasks
 - mouseover info (pixel position and color), and click to insert position/color into the chat
+- Open, Save, and Close buttons (with shortcuts), and tools to let the agent do these
+
+Note that I've chosen to employ a simple on-disk backup strategy against unintended data loss: when we save a file, if a file already exists there, we look for a .bak version of the file.  If we don't find it, then we move the existing file to there.  If it does, then we leave it alone and just overwrite the existing file.  The idea here is that you'll get one backup of each image you start monkeying with, which will preserve it in its original state, and no amount of monkeying in PixelClaw will then clobber it.  You'd have to go in and delete the backup file yourself.
+
+I think tomorrow I'll hook up a speech (STT and TTS) interface, and then record our first demo video.  It already does a lot, and we may as well start getting feedback from other potential users.
 
 

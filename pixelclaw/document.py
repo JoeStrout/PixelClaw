@@ -51,6 +51,7 @@ class ImageDocument(Document):
 
     def load(self, path: Path) -> None:
         self.path = path
+        self.file_path = path
         self._versions = [(np.array(Image.open(path).convert("RGBA")), "loaded from file")]
         self.dirty = False
 
@@ -59,4 +60,5 @@ class ImageDocument(Document):
             raise ValueError("No image to save")
         Image.fromarray(self.image, "RGBA").save(path)
         self.path = path
+        self.file_path = path
         self.dirty = False

@@ -84,7 +84,17 @@ Make a named document the active document.
 
 ## close_documents
 Close one or more documents by name.
-- `names` — list of document names to close (required). Pass `["all except active"]` to close every document except the current one.
+- `names` — list of document names to close (required). Special values: `["active"]` closes the current document; `["all except active"]` closes every document except the current one.
+
+## save_document
+Save a document to disk. If a file already exists at the destination, it is first moved to `<stem>.bak<ext>` (only if that backup file does not already exist). Saving as JPEG automatically composites the image onto white. Never shows a dialog.
+- `document` — name of the document to save (optional, defaults to active)
+- `path` — destination path or filename (optional, defaults to the document's current file path). A bare name without extension defaults to `.png`. If only a filename is given, it is placed in the document's current directory.
+
+## rename_document
+Rename a document. Updates the in-memory name and, if the document has a file on disk, renames that file too.
+- `new_name` — new filename, e.g. `"lobster2"` or `"lobster2.png"` (required). If no extension is given, the current extension is kept.
+- `document` — name of the document to rename (optional, defaults to active)
 
 ## new_from_region
 Create a new document from a rectangular region of the active image without modifying the original. Omit region parameters to duplicate the whole image.

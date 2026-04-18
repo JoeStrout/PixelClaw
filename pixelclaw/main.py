@@ -9,29 +9,25 @@ from PIL import Image
 from agentcore.app import App
 from agentcore.chatpanel import ChatPanel
 from agentcore.context import Context
-from agentcore.panel import Panel
-from agentcore.resources import default_font
 from agentcore.tool import Tool
 
 from .document import ImageDocument
 from .dockpanel import DockPanel
+from .headerpanel import HeaderPanel
 from .layout import LayoutManager
 from .mainpanel import MainPanel
 from . import textures
 from .ml_deps import ensure_packages
 from .tools import (ApplyTool, CloseDocsTool, CropTool, EditImageTool, GenerateImageTool,
                     InspectTool, MultiApplyTool, NewFromRegionTool, NewImageTool, PadTool,
-                    PixelateTool, PosterizeTool, QueryTool, RemoveBackgroundTool, RevertTool,
-                    RotateTool, ScaleTool, SeparateLayersTool, SetActiveTool, SoftThresholdTool,
-                    TrimTool, UndoTool, VersionHistoryTool)
-from .file_dialogs import save_image
+                    PixelateTool, PosterizeTool, QueryTool, RemoveBackgroundTool, RenameDocumentTool,
+                    RevertTool, RotateTool, SaveDocumentTool, ScaleTool, SeparateLayersTool,
+                    SetActiveTool, SoftThresholdTool, TrimTool, UndoTool, VersionHistoryTool)
+from .file_dialogs import open_images, save_image
+from .headerpanel import _alt_is_held
 from .workspace import ImageWorkspace
 
 _SUPPORTED_EXTENSIONS = {".png", ".jpg", ".jpeg", ".gif", ".bmp", ".tiff", ".tif", ".webp"}
-
-SILVER = (192, 192, 192, 255)
-TITLE_SIZE = 48
-TITLE_MARGIN = 12
 
 _COLOR_HEADER = (45,  45,  70, 255)
 _COLOR_DOCK   = (35,  60,  45, 255)
@@ -55,17 +51,20 @@ class PixelClawApp(App):
             ApplyTool(), CloseDocsTool(), CropTool(),
             EditImageTool(self._openai_key), GenerateImageTool(self._openai_key),
             InspectTool(), MultiApplyTool(), NewFromRegionTool(), NewImageTool(), PadTool(),
-            PixelateTool(), PosterizeTool(), QueryTool(), RemoveBackgroundTool(), RevertTool(),
-            RotateTool(), ScaleTool(), SeparateLayersTool(), SetActiveTool(), SoftThresholdTool(),
+            PixelateTool(), PosterizeTool(), QueryTool(), RemoveBackgroundTool(),
+            RenameDocumentTool(), RevertTool(), RotateTool(), SaveDocumentTool(),
+            ScaleTool(), SeparateLayersTool(), SetActiveTool(), SoftThresholdTool(),
             TrimTool(), UndoTool(), VersionHistoryTool(),
         ]
 
     def on_start(self) -> None:
         self._reply_queue: queue.Queue[str] = queue.Queue()
-        self._save_key = _find_key_for_char('s')
+        self._save_key  = _find_key_for_char('s')
+        self._open_key  = _find_key_for_char('o')
+        self._close_key = _find_key_for_char('w')
         self._window_focused = rl.IsWindowFocused()
 
-        self.header = Panel("Header")
+        self.header = HeaderPanel("Header")
         self.dock   = DockPanel("Dock",  context=self.workspace)
         self.main   = MainPanel("Main",  context=self.workspace)
         self.chat   = ChatPanel("Chat",  on_message=self._handle_message)
@@ -86,6 +85,12 @@ class PixelClawApp(App):
 
         self.layout = LayoutManager(self.header, self.dock, self.main, self.chat)
         self.layout.update(rl.GetScreenWidth(), rl.GetScreenHeight())
+        self.header.setup(
+            self.workspace,
+            on_open=self._open_documents,
+            on_save=self._save_active_document,
+            on_close_doc=self._close_active_document,
+        )
 
     def _handle_message(self, text: str) -> None:
         self.chat.add_entry(text, "user")
@@ -106,26 +111,59 @@ class PixelClawApp(App):
         # Snapshot focus state from the previous frame so MainPanel can ignore
         # the activating click when the user switches to this window.
         self.main._window_was_focused = self._window_focused
-        cmd  = rl.IsKeyDown(rl.KEY_LEFT_SUPER)   or rl.IsKeyDown(rl.KEY_RIGHT_SUPER)
-        ctrl = rl.IsKeyDown(rl.KEY_LEFT_CONTROL) or rl.IsKeyDown(rl.KEY_RIGHT_CONTROL)
-        if (cmd or ctrl) and rl.IsKeyPressed(self._save_key):
+        if self._mod() and rl.IsKeyPressed(self._open_key):
+            self._open_documents()
+        if self._mod() and rl.IsKeyPressed(self._save_key):
             self._save_active_document()
+        if self._mod() and rl.IsKeyPressed(self._close_key):
+            self._close_active_document()
         if rl.IsKeyPressed(rl.KEY_TAB):
             self.root.set_focus(self.chat)
             self.chat.set_focus(self.chat._input)
         super()._process_input()
         self._window_focused = rl.IsWindowFocused()
 
+    def _mod(self) -> bool:
+        return (rl.IsKeyDown(rl.KEY_LEFT_SUPER)   or rl.IsKeyDown(rl.KEY_RIGHT_SUPER) or
+                rl.IsKeyDown(rl.KEY_LEFT_CONTROL) or rl.IsKeyDown(rl.KEY_RIGHT_CONTROL))
+
+    def _open_documents(self) -> None:
+        paths = open_images()
+        if paths:
+            self.on_files_dropped([str(p) for p in paths])
+
+    def _close_active_document(self) -> None:
+        idx = self.workspace.active_index
+        if idx < 0:
+            return
+        doc = self.workspace.documents[idx]
+        name = doc.name
+        textures.invalidate_thumbnail(doc)
+        textures.invalidate_display(doc)
+        self.workspace.close(idx)
+        self.chat.add_entry(f"Closed '{name}'.", "agent")
+
     def _save_active_document(self) -> None:
         doc = self.workspace.active_document
         if not isinstance(doc, ImageDocument) or doc.image is None:
             return
-        path = save_image(doc.name)
-        if path is None:
-            return
+        if doc.file_path is not None and not _alt_is_held():
+            self._save_to_path(doc, doc.file_path)
+        else:
+            default = doc.file_path.name if doc.file_path else doc.name
+            path = save_image(default)
+            if path is not None:
+                self._save_to_path(doc, path)
+
+    def _save_to_path(self, doc: ImageDocument, path: Path) -> None:
+        if path.exists():
+            bak = path.with_name(path.stem + ".bak" + path.suffix)
+            if not bak.exists():
+                path.rename(bak)
         try:
             _save_pil(doc.image, path)
             doc.path = path
+            doc.file_path = path
             doc.dirty = False
             self.chat.add_entry(f"Saved '{path.name}'.", "agent")
         except Exception as e:
@@ -154,6 +192,7 @@ class PixelClawApp(App):
     def on_close(self) -> None:
         self.chat.unload()
         self.main.unload()
+        self.header.unload()
         textures.unload_all()
 
     def update(self) -> None:
@@ -174,14 +213,7 @@ class PixelClawApp(App):
             self.root.height = rl.GetScreenHeight()
 
     def draw(self) -> None:
-        self._draw_title()
-
-    def _draw_title(self) -> None:
-        font = default_font()
-        text = "PixelClaw"
-        w, _ = font.measure(text, TITLE_SIZE)
-        x = rl.GetScreenWidth() - w - TITLE_MARGIN
-        font.draw(text, x, TITLE_MARGIN, TITLE_SIZE, SILVER)
+        pass
 
 
 def _find_key_for_char(char: str) -> int:
