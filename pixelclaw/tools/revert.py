@@ -37,4 +37,6 @@ class RevertTool(Tool):
         if not doc.revert_to(index):
             return f"Error: index {index} out of range (document has {total} versions, 0–{total - 1})."
         _, reason = doc.version_history()[-1]
-        return f"Reverted '{doc.name}' to version {index} ({reason or 'no reason recorded'}). {total - index - 1} version(s) discarded."
+        h, w = doc.image.shape[:2]
+        return (f"Reverted '{doc.name}' to version {index} ({reason or 'no reason recorded'}). "
+                f"{total - index - 1} version(s) discarded. Current image: {w}×{h} px.")

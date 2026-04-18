@@ -39,3 +39,18 @@ We might want to also include GroundingDINO, a language-object detection model. 
 One big step up for today: control+S or command+S pops up a native "Save As" dialog, and lets you save your image to disk.  So I've started actually using PixelClaw for real purposes today.  Neat!
 
 I've started talking to Claude about options for a "pixelate" tool, since the obvious flow (posterize and scale, or scale and quantize) don't produce great results.  This is apparently not a well-solved problem, or at least good solutions are not widely known.  I'll dig deeper.
+
+(I tried Retro Diffusion, but it didn't work very well; see the retro-diffusion branch in git.)
+
+
+## Apr 18 2026
+
+I hooked in the Pyxelate library (https://github.com/sedthh/pyxelate), and I'm quite pleased with the results.  It does the best job of anything I've tried this week.
+
+Then I added a separate_layers tool that I'm quite proud of; it can take a cartoon-style drawing, with strong lines around colored areas, and separate it into "ink", "color", and "background" layers.  The ink layer looks like a coloring book.  If we had the editing tools, you could then paint in the color layer, leaving the ink intact, and then reassemble it.  (I say "layer" but for now they're really separate documents; we don't yet have the concept of image layers.)
+
+Then added a posterize tool.  Ours is, I feel, better than the standard posterize tool even in apps like Affinity Photo; it does a blend first to reduce speckle before finding the reduced palette, and then also does a despeckle operation afterwards to eliminate isolated pixels.  The result is a much smoother posterization.
+
+I've added a test_images folder with some standard images to work with, of several different kinds.  It's amazing what these tools can do — I took an image of a woman in the rain (including rain streaks in front of her face), removed the rain, removed the background, generated a jungle background, and then put the woman in the jungle.  All very easy!
+
+

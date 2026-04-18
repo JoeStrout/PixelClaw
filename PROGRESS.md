@@ -108,7 +108,62 @@ Bootstrapped the project from scratch.
 - Layout-aware key detection: `_find_key_for_char('s')` scans key codes 32–350 using `glfwGetKeyName(key, 0)` (layout-aware) to find the code that produces `'s'` in the current OS keyboard layout. Runs once in `on_start()` after `InitWindow`. Correctly handles Dvorak, Colemak, etc.
 - JPEG save composites on a white RGB background before saving (no alpha channel in JPEG).
 
+---
+
+## Apr 18 2026
+
+**`pixelate` tool** (`pixelclaw/tools/pixelate.py`)
+- Wraps the pyxelate library (installed from GitHub; uses Bayesian Gaussian Mixture + sobel-weighted downsampling).
+- Accepts `factor` **or** `target_width`/`target_height` (or both, validated for consistency). When a target size is given the image is pre-scaled (Lanczos) to the nearest exact multiple of the factor before pixelation, so the output matches the requested size precisely.
+- `svd` defaults to `false` (faster; empirically looks better).
+- Posts a progress message (with expected output size and palette count) before the slow BGM step.
+- Includes a `__main__` test block: prompts for input path and parameters, writes `<stem>_pixelated.png`.
+- Agent instructions updated: `pixelate` entry now includes `target_width`/`target_height` params and an explicit rule to never follow a `pixelate` call with a `scale` call.
+
+**`undo` tool** (`pixelclaw/tools/undo.py`)
+- No-argument shortcut for "revert to previous version". Returns the version label and current image dimensions.
+- `revert` tool also updated to report image dimensions after reverting, so the agent is grounded before proceeding with further operations.
+- Agent instructions updated: explicit rule that when asked to undo-then-redo, `undo` must be called first and its returned state verified before any subsequent tool call.
+
+**Main panel UI tweak** (`pixelclaw/mainpanel.py`)
+- 16 px top and bottom margin added; image scales to fit the margined area.
+- Current image dimensions (e.g. `512×512`) drawn right-aligned in the top margin in small translucent gray text.
+
+**`separate_layers` tool** (`pixelclaw/tools/separate_layers.py`)
+- Splits a cartoon/line-art image into `_ink` (black outlines, varying alpha), `_color` (flat fill colors), `_bg` (background, fully opaque), and `_palette` (swatch strip) documents.
+- **Palette discovery**: uses pyxelate's BGM (not K-means) on a near-black-purified copy of the image. Pixels with `max(R,G,B) < 64` are snapped to true black before fitting, preventing AI-image speckle in dark areas from registering as spurious fill colors.
+- **Background detection**: samples border pixels, quantizes to 8-step bins, and votes for the most common color — handles any background color, not just white.
+- **Unmixing**: extended palette is `[black, bg_color, ...fill_colors]`. For each pixel the two nearest palette entries are found (Euclidean RGB) and the linear mix solved. Cases: ink/fill, fill/bg, ink/bg, solid fill, solid ink, solid bg — each assigns correctly to the three output layers.
+- Background layer is fully opaque (solid detected bg color, no alpha cutout).
+- Includes a `__main__` test block.
+
 **InputField improvements**
 - `Alt+Backspace` — delete word to the left of cursor.
 - `Alt+Delete` — delete word to the right of cursor.
 - **Focus bug fix** — `Panel.is_focused` previously only checked one level up the parent chain; a click on the main panel would update `root._focused_child` but leave `ChatPanel._focused_child` still pointing at `InputField`, causing the cursor to appear focused while keyboard events were dead-ended elsewhere. Fixed by walking the full ancestor chain to verify every level agrees.
+
+**`posterize` tool** (`pixelclaw/tools/posterize.py`)
+- Reduces an image to a small flat-color palette to eliminate speckle/texture common in AI-generated images, without changing image size.
+- Pipeline: Gaussian blur of configurable `blend_radius` → BGM palette discovery (via sklearn `BayesianGaussianMixture`) on blurred pixels → nearest-palette remap of original pixels → optional despeckle pass.
+- **Palette discovery**: subsamples to 50k pixels for speed; active components filtered by weight threshold; pure black `(0,0,0)` and white `(255,255,255)` always guaranteed in palette (replacing near-black/near-white entries within L2 distance 60, or appending if none are close).
+- **Despeckle** (`despeckle=True` by default): after palette remap, finds every pixel whose label differs from all 8 neighbors and replaces it with the modal neighbor label. Vectorized via `np.roll` + per-label vote counts.
+- Includes a `__main__` test block (prompts for input, palette, blend_radius, despeckle; writes `<stem>_posterized.png`).
+- Registered in `__init__.py`, imported and instantiated in `main.py`, documented in `agent_instructions.md`.
+
+**`inspect` tool update**
+- Now reports unique color count (RGB, ignoring alpha) for the inspected region.
+
+**Tab-to-focus shortcut**
+- Pressing Tab anywhere in the window routes keyboard focus to the chat input field (`root.set_focus(chat)` + `chat.set_focus(chat._input)`). Both links in the focus chain must be set — only setting the bottom link was the original bug.
+
+**Thinking indicator**
+- `ChatPanel` gains `thinking: bool` + `_thinking_start: float` attributes. When `thinking` is True and ≥5 seconds have elapsed, three pulsing dots are drawn below the last speech balloon (inside the scroll scissor region); content height is expanded to include them, and the panel auto-scrolls to show them on their first visible frame.
+- `PixelClawApp._handle_message()` sets `thinking = True`; `update()` clears it when the reply arrives.
+
+**Agent instruction fixes**
+- `edit_image` description now explicitly calls out removing specific objects as a use case.
+- `remove_background` description clarified: removes the *background* (making it transparent), not objects within the scene — cross-references `edit_image` for object removal.
+
+**CLAUDE.md additions**
+- `debug_output/` directory documented as the primary debugging tool (numbered request/response JSON pairs, cleared on each launch).
+- "How to add a new tool" checklist added with all four required steps (create file, register in `__init__.py`, import + instantiate in `main.py`, document in `agent_instructions.md`), with a note that missing step 4 is the most common mistake.

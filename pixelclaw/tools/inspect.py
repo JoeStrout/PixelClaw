@@ -83,6 +83,10 @@ class InspectTool(Tool):
         else:
             lines.append("Content bbox: none (fully transparent)")
 
+        # Unique colors (RGB only, ignoring alpha)
+        unique_colors = len(np.unique(region[:, :, :3].reshape(-1, 3), axis=0))
+        lines.append(f"Unique colors (RGB): {unique_colors:,}")
+
         # 8×8 hex alpha map + color map
         grid_h, grid_w = 8, 8
         cell_h = height / grid_h

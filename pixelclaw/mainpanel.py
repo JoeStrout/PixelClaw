@@ -13,6 +13,9 @@ from . import textures
 
 _HINT_COLOR = (100, 100, 100, 255)
 _HINT_SIZE  = 16.0
+_MARGIN     = 16.0
+_DIM_SIZE   = 12.0
+_DIM_COLOR  = (120, 120, 120, 255)
 _BG_PATTERN = Path(__file__).parent / "resources" / "backgroundPattern.png"
 
 
@@ -56,12 +59,14 @@ class MainPanel(Panel):
             self._draw_hint("(no image data)")
             return
 
-        # Scale to fit while preserving aspect ratio
-        scale  = min(self.width / tex.width, self.height / tex.height)
+        # Scale to fit within the margined area while preserving aspect ratio
+        avail_w = self.width
+        avail_h = self.height - 2 * _MARGIN
+        scale  = min(avail_w / tex.width, avail_h / tex.height)
         draw_w = tex.width  * scale
         draw_h = tex.height * scale
         draw_x = self.abs_x + (self.width  - draw_w) / 2
-        draw_y = self.abs_y + (self.height - draw_h) / 2
+        draw_y = self.abs_y + _MARGIN + (avail_h - draw_h) / 2
 
         # Tiled checkerboard behind the image
         self._ensure_bg()
@@ -75,6 +80,15 @@ class MainPanel(Panel):
         dest = rl.ffi.new("Rectangle *", [draw_x, draw_y, draw_w, draw_h])
         origin = rl.ffi.new("Vector2 *", [0.0, 0.0])
         rl.DrawTexturePro(tex, src[0], dest[0], origin[0], 0.0, rl.WHITE)
+
+        # Dimensions label — right-aligned in the top margin
+        font = default_font()
+        dim_text = f"{doc.image.shape[1]}×{doc.image.shape[0]}"
+        tw, _ = font.measure(dim_text, _DIM_SIZE)
+        font.draw(dim_text,
+                  self.abs_x + self.width - tw - 4,
+                  self.abs_y + (_MARGIN - _DIM_SIZE) / 2,
+                  _DIM_SIZE, _DIM_COLOR)
 
     def _draw_hint(self, text: str) -> None:
         font = default_font()

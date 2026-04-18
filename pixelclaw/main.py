@@ -21,8 +21,8 @@ from . import textures
 from .ml_deps import ensure_packages
 from .tools import (ApplyTool, CloseDocsTool, CropTool, EditImageTool, GenerateImageTool,
                     InspectTool, MultiApplyTool, NewFromRegionTool, NewImageTool, PadTool,
-                    RemoveBackgroundTool, RevertTool, RotateTool, ScaleTool, SetActiveTool,
-                    SoftThresholdTool, VersionHistoryTool)
+                    PixelateTool, PosterizeTool, RemoveBackgroundTool, RevertTool, RotateTool, ScaleTool,
+                    SeparateLayersTool, SetActiveTool, SoftThresholdTool, UndoTool, VersionHistoryTool)
 from .file_dialogs import save_image
 from .workspace import ImageWorkspace
 
@@ -54,8 +54,8 @@ class PixelClawApp(App):
             ApplyTool(), CloseDocsTool(), CropTool(),
             EditImageTool(self._openai_key), GenerateImageTool(self._openai_key),
             InspectTool(), MultiApplyTool(), NewFromRegionTool(), NewImageTool(), PadTool(),
-            RemoveBackgroundTool(), RevertTool(), RotateTool(), ScaleTool(), SetActiveTool(),
-            SoftThresholdTool(), VersionHistoryTool(),
+            PixelateTool(), PosterizeTool(), RemoveBackgroundTool(), RevertTool(), RotateTool(), ScaleTool(), SetActiveTool(),
+            SeparateLayersTool(), SoftThresholdTool(), UndoTool(), VersionHistoryTool(),
         ]
 
     def on_start(self) -> None:
@@ -80,6 +80,9 @@ class PixelClawApp(App):
 
     def _handle_message(self, text: str) -> None:
         self.chat.add_entry(text, "user")
+        self.chat.thinking = True
+        self.chat._thinking_start = rl.GetTime()
+        self.chat._thinking_shown = False
 
         def _run() -> None:
             try:
@@ -95,6 +98,9 @@ class PixelClawApp(App):
         ctrl = rl.IsKeyDown(rl.KEY_LEFT_CONTROL) or rl.IsKeyDown(rl.KEY_RIGHT_CONTROL)
         if (cmd or ctrl) and rl.IsKeyPressed(self._save_key):
             self._save_active_document()
+        if rl.IsKeyPressed(rl.KEY_TAB):
+            self.root.set_focus(self.chat)
+            self.chat.set_focus(self.chat._input)
         super()._process_input()
 
     def _save_active_document(self) -> None:
@@ -143,6 +149,7 @@ class PixelClawApp(App):
 
         while not self._reply_queue.empty():
             reply = self._reply_queue.get_nowait()
+            self.chat.thinking = False
             self.chat.add_entry(reply, "agent")
             for doc in self.workspace.documents:
                 textures.invalidate_thumbnail(doc)

@@ -69,6 +69,20 @@ Agent tools run on a background thread. **Tools must never call Raylib or touch 
 - Tools call `doc.push(array)` only.
 - `PixelClawApp.update()` drains the reply queue on the main thread, then calls `textures.invalidate_thumbnail/display` for all documents.
 
+## Debugging
+
+Agent API requests and responses are logged to `debug_output/` as numbered JSON pairs (`0001_request.json` / `0001_response.json`, etc.). Each request contains the full message history and tool list; each response shows which tool was called and the token counts. This is the primary way to diagnose unexpected agent behavior.
+
+## How to add a new tool
+
+1. Create `pixelclaw/tools/<name>.py` with a class subclassing `Tool`. Implement `name`, `description`, `input_schema`, and `execute`.
+2. Add an `if __name__ == "__main__":` block for manual testing (prompt for an input image and parameters, run the algorithm, save `<stem>_<toolname>.png`). Run with `micromamba run -n pixelclaw python -m pixelclaw.tools.<name>`.
+3. Register in `pixelclaw/tools/__init__.py`: add the import and add the class name to `__all__`.
+4. Import and instantiate in `pixelclaw/main.py`: add to the `from .tools import (...)` line **and** add `MyTool()` inside `create_tools()`.
+5. Document the tool in `pixelclaw/agent_instructions.md` under `# Available Tools`.
+
+Missing step 4 is the most common mistake — the tool exists but the agent can't see it.
+
 ## Architecture notes
 
 - `Context.chat_history` is the raw Anthropic API list; `Context.history` is the human-readable event log

@@ -28,6 +28,10 @@ _SCROLL_SPEED = 40
 _INPUT_HEIGHT = 36
 # Vertical margin above/below the input field
 _INPUT_MARGIN = 6
+# Seconds before the thinking indicator appears
+_THINKING_DELAY = 5.0
+# Vertical space reserved for the thinking dots
+_THINKING_HEIGHT = 24
 
 
 @dataclass
@@ -57,6 +61,10 @@ class ChatPanel(Panel):
         # Loaded lazily on first draw (requires an OpenGL context)
         self._balloon_left:  NinePatch | None = None
         self._balloon_right: NinePatch | None = None
+
+        self.thinking: bool = False
+        self._thinking_start: float = 0.0
+        self._thinking_shown: bool = False  # tracks first-visible frame for auto-scroll
 
         # Input field — position/size kept in sync with panel size
         self._input = InputField(
@@ -215,10 +223,28 @@ class ChatPanel(Panel):
 
             y += bh + _BALLOON_GAP
 
+        # Thinking indicator — three pulsing dots below the last balloon
+        if self.thinking and rl.GetTime() - self._thinking_start >= _THINKING_DELAY:
+            if not self._thinking_shown:
+                self._thinking_shown = True
+                self._scroll_to_bottom()
+            dot_r = 4
+            dot_cx = ax + _TEXT_PAD + dot_r
+            dot_cy = int(y + dot_r + 4)
+            t = rl.GetTime()
+            active = int(t / 0.4) % 3
+            for i in range(3):
+                color = (220, 220, 220, 255) if i == active else (140, 140, 140, 110)
+                rl.DrawCircle(int(dot_cx + i * (dot_r * 2 + 6)), dot_cy, dot_r, color)
+        else:
+            self._thinking_shown = False
+
         rl.EndScissorMode()
 
     def _recompute_content_height(self) -> None:
         total = sum(self._entry_height(e) + _BALLOON_GAP for e in self.entries)
+        if self.thinking and rl.GetTime() - self._thinking_start >= _THINKING_DELAY:
+            total += _THINKING_HEIGHT
         self._content_height = max(total, 0.0)
 
     # ------------------------------------------------------------------
