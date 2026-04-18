@@ -21,8 +21,9 @@ from . import textures
 from .ml_deps import ensure_packages
 from .tools import (ApplyTool, CloseDocsTool, CropTool, EditImageTool, GenerateImageTool,
                     InspectTool, MultiApplyTool, NewFromRegionTool, NewImageTool, PadTool,
-                    PixelateTool, PosterizeTool, RemoveBackgroundTool, RevertTool, RotateTool, ScaleTool,
-                    SeparateLayersTool, SetActiveTool, SoftThresholdTool, UndoTool, VersionHistoryTool)
+                    PixelateTool, PosterizeTool, QueryTool, RemoveBackgroundTool, RevertTool,
+                    RotateTool, ScaleTool, SeparateLayersTool, SetActiveTool, SoftThresholdTool,
+                    TrimTool, UndoTool, VersionHistoryTool)
 from .file_dialogs import save_image
 from .workspace import ImageWorkspace
 
@@ -54,13 +55,15 @@ class PixelClawApp(App):
             ApplyTool(), CloseDocsTool(), CropTool(),
             EditImageTool(self._openai_key), GenerateImageTool(self._openai_key),
             InspectTool(), MultiApplyTool(), NewFromRegionTool(), NewImageTool(), PadTool(),
-            PixelateTool(), PosterizeTool(), RemoveBackgroundTool(), RevertTool(), RotateTool(), ScaleTool(), SetActiveTool(),
-            SeparateLayersTool(), SoftThresholdTool(), UndoTool(), VersionHistoryTool(),
+            PixelateTool(), PosterizeTool(), QueryTool(), RemoveBackgroundTool(), RevertTool(),
+            RotateTool(), ScaleTool(), SeparateLayersTool(), SetActiveTool(), SoftThresholdTool(),
+            TrimTool(), UndoTool(), VersionHistoryTool(),
         ]
 
     def on_start(self) -> None:
         self._reply_queue: queue.Queue[str] = queue.Queue()
         self._save_key = _find_key_for_char('s')
+        self._window_focused = rl.IsWindowFocused()
 
         self.header = Panel("Header")
         self.dock   = DockPanel("Dock",  context=self.workspace)
@@ -71,6 +74,12 @@ class PixelClawApp(App):
         self.dock.bg_color   = _COLOR_DOCK
         self.main.bg_color   = _COLOR_MAIN
         self.chat.bg_color   = _COLOR_CHAT
+
+        self.main._input_field = self.chat._input
+        self.main._focus_input_fn = lambda: (
+            self.root.set_focus(self.chat),
+            self.chat.set_focus(self.chat._input),
+        )
 
         for panel in (self.header, self.dock, self.main, self.chat):
             self.root.add(panel)
@@ -94,6 +103,9 @@ class PixelClawApp(App):
         threading.Thread(target=_run, daemon=True).start()
 
     def _process_input(self) -> None:
+        # Snapshot focus state from the previous frame so MainPanel can ignore
+        # the activating click when the user switches to this window.
+        self.main._window_was_focused = self._window_focused
         cmd  = rl.IsKeyDown(rl.KEY_LEFT_SUPER)   or rl.IsKeyDown(rl.KEY_RIGHT_SUPER)
         ctrl = rl.IsKeyDown(rl.KEY_LEFT_CONTROL) or rl.IsKeyDown(rl.KEY_RIGHT_CONTROL)
         if (cmd or ctrl) and rl.IsKeyPressed(self._save_key):
@@ -102,6 +114,7 @@ class PixelClawApp(App):
             self.root.set_focus(self.chat)
             self.chat.set_focus(self.chat._input)
         super()._process_input()
+        self._window_focused = rl.IsWindowFocused()
 
     def _save_active_document(self) -> None:
         doc = self.workspace.active_document

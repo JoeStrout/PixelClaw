@@ -6,9 +6,10 @@ from pathlib import Path
 import raylib as rl
 
 from .inputfield import InputField
+from .mdrender import parse, wrap_runs, draw_runs
 from .ninepatch import NinePatch
 from .panel import Panel
-from .resources import default_font
+from .resources import default_font, style_font_map
 
 _RESOURCES = Path(__file__).parent / "resources"
 
@@ -149,29 +150,6 @@ class ChatPanel(Panel):
             self._balloon_right = None
 
     # ------------------------------------------------------------------
-    # Word wrap
-    # ------------------------------------------------------------------
-
-    def _wrap_text(self, text: str, max_width: float) -> list[str]:
-        """Break *text* into lines that each fit within *max_width* logical pixels."""
-        font = default_font()
-        words = text.split()
-        lines: list[str] = []
-        current = ""
-        for word in words:
-            candidate = word if not current else current + " " + word
-            w, _ = font.measure(candidate, self.font_size)
-            if w <= max_width:
-                current = candidate
-            else:
-                if current:
-                    lines.append(current)
-                current = word
-        if current:
-            lines.append(current)
-        return lines if lines else [""]
-
-    # ------------------------------------------------------------------
     # Layout helpers
     # ------------------------------------------------------------------
 
@@ -180,10 +158,9 @@ class ChatPanel(Panel):
 
     def _entry_height(self, entry: ChatEntry) -> float:
         """Total height (including vertical padding) of a single entry's balloon."""
-        font = default_font()
-        _, line_h = font.measure("Ag", self.font_size)
+        _, line_h = default_font().measure("Ag", self.font_size)
         text_w = self._balloon_width() - _TEXT_PAD * 2
-        lines = self._wrap_text(entry.text, text_w)
+        lines = wrap_runs(parse(entry.text), text_w, self.font_size, style_font_map())
         text_h = line_h * len(lines) + _LINE_GAP * (len(lines) - 1)
         return text_h + _TEXT_PAD * 2 + _BOTTOM_PAD
 
@@ -217,8 +194,9 @@ class ChatPanel(Panel):
             text_x = bx + _TEXT_PAD
             text_w = bw - _TEXT_PAD * 2
             ty = y + _TEXT_PAD
-            for line in self._wrap_text(entry.text, text_w):
-                font.draw(line, text_x, ty, self.font_size, rl.BLACK)
+            fmap = style_font_map()
+            for line_runs in wrap_runs(parse(entry.text), text_w, self.font_size, fmap):
+                draw_runs(line_runs, text_x, ty, self.font_size, rl.BLACK, fmap)
                 ty += line_h + _LINE_GAP
 
             y += bh + _BALLOON_GAP

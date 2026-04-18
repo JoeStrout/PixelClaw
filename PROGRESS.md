@@ -167,3 +167,57 @@ Bootstrapped the project from scratch.
 **CLAUDE.md additions**
 - `debug_output/` directory documented as the primary debugging tool (numbered request/response JSON pairs, cleared on each launch).
 - "How to add a new tool" checklist added with all four required steps (create file, register in `__init__.py`, import + instantiate in `main.py`, document in `agent_instructions.md`), with a note that missing step 4 is the most common mistake.
+
+---
+
+## Apr 18 2026 (continued)
+
+**Pixel info display in MainPanel**
+- When the mouse hovers over the image, the bottom gutter shows `(x, y)  #RRGGBBAA` — pixel coordinates and HTML color with alpha.
+- Each hex pair is drawn in its own color: RR in red, GG in green, BB in blue, AA in gray.
+
+**Click-to-insert pixel info into chat input**
+- Left-clicking on the image inserts pixel data into the chat `InputField` at the cursor position, using three smart heuristics based on the two words immediately preceding the cursor:
+  - "color" or "colour" present → insert just the HTML color string.
+  - "pos", "position", or "here" present → insert just `(X:n, Y:n)`.
+  - Neither → insert `(X:n, Y:n, #RRGGBBAA)` (full info).
+- After insertion, focus is restored to the input field.
+- Guard: clicks that activate the window (i.e. the window was not focused the previous frame) are ignored, so switching to the app never accidentally inserts data. Implemented by snapshotting `IsWindowFocused()` at the start of `_process_input` and updating it at the end.
+
+**InputField polish when window is inactive**
+- Blinking cursor is hidden when `IsWindowFocused()` is false.
+- Any active text selection is drawn as an outline rect (not filled) while the window is inactive, matching standard platform conventions.
+
+**Inline markdown rendering** (`agentcore/mdrender.py`)
+- New module: `Style` (frozen dataclass with `bold`, `italic`, `code` flags), `Run` (text + style), `parse()` (regex-based inline-markdown parser), `wrap_runs()` (word-wrap respecting style boundaries and explicit newlines), `draw_runs()` (draw a single pre-wrapped line of styled runs).
+- Supported spans: `**bold**`, `*italic*`, `***bold-italic***`, `` `code` ``, and underscore variants.
+- Code spans rendered in amber; bold uses DejaVuSans-Bold; italic uses DejaVuSans-Oblique; bold-italic uses DejaVuSans-BoldOblique.
+- `agentcore/resources.py` extended with `bold_font()`, `italic_font()`, `bold_italic_font()` singletons and `style_font_map()` (lazy dict mapping `Style→Font`); all fonts unloaded by `unload_all()`.
+- `ChatPanel` updated to use `parse` + `wrap_runs` + `draw_runs` in place of the old plain-string `_wrap_text`. Both `_entry_height` and the draw loop are updated.
+- Added `DejaVuSans-Bold.ttf` to `agentcore/resources/`.
+
+**Word-wrap measurement bug fix**
+- `wrap_runs` previously accumulated line width by summing individually-measured words and spaces. Raylib's `MeasureTextEx` adds inter-glyph `spacing` (1.0 px) between every character in a concatenated string, so the drawn width of a merged run was always wider than the sum of its parts — causing bold text to overflow balloon boundaries.
+- Fixed by replacing the accumulator with `_measure_line()`, which calls `_merge_line()` on the candidate token list and measures each resulting run as a whole string — exactly mirroring what `draw_runs` will paint.
+
+**`inspect` tool — smart background detection**
+- When the image has no transparent pixels, `inspect` now checks whether ≥3/4 corners share the same RGB color.
+- If so, reports `Background: #RRGGBB (N/4 corners match)` and computes a tight `Content bbox` based on non-background pixels rather than alpha.
+- If not, reports "no background detected" and `Content bbox: full image`.
+- Transparent images still use the existing alpha-based path (reports `Background: transparent`).
+
+**`query` tool** (`pixelclaw/tools/query.py`)
+- Runs arbitrary Python/numpy code on the active image and returns a string, dict, number, or list — not an ndarray.
+- Both `img` (float32) and `image` (uint8) are available; `np`, `ndi`, `skimage` in scope.
+- Fills the gap where `apply` can't return computed data (bbox coordinates, statistics, etc.) to the agent. Includes a worked example in the schema description showing how to compute a non-white bounding box.
+
+**`trim` tool** (`pixelclaw/tools/trim.py`)
+- Crops the active image to the tight bounding box of non-background pixels.
+- Background auto-detected from corners (≥3/4 must agree) or specified as `'#RRGGBB'`, `'#RRGGBBAA'`, or `'transparent'`.
+- Optional `tolerance` (per-channel max delta, default 0) for near-background pixels.
+- Reports pixels removed from each edge and the detected/used background color.
+
+**`rotate` tool — 90° special case**
+- Angles within 0.01° of a 90° multiple (90, 180, 270, and their negatives) now use PIL's lossless `transpose()` rather than the padded-canvas rotation path.
+- A 1024×683 image rotated 90° or -90° now produces exactly 683×1024 with no padding.
+

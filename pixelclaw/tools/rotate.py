@@ -75,6 +75,26 @@ class RotateTool(Tool):
         arr = doc.image
         oh, ow = arr.shape[:2]
 
+        # Special case: exact 90° increments — use lossless transpose (no padding).
+        norm = degrees % 360
+        _TRANSPOSE = {
+            90:  PILImage.ROTATE_90,
+            180: PILImage.ROTATE_180,
+            270: PILImage.ROTATE_270,
+        }
+        for target, op in _TRANSPOSE.items():
+            if abs(norm - target) < 0.01:
+                result = np.asarray(PILImage.fromarray(arr, "RGBA").transpose(op))
+                rh, rw = result.shape[:2]
+                reason = workspace.agent_reason or f"rotate {degrees}°"
+                idx = doc.push(result, reason=reason)
+                return (
+                    f"Rotated {degrees}° (CCW). "
+                    f"Original size: {ow}×{oh} px. "
+                    f"New size: {rw}×{rh} px. "
+                    f"Version index: {idx}."
+                )
+
         cx = pivot_x if pivot_x is not None else ow / 2.0
         cy = pivot_y if pivot_y is not None else oh / 2.0
 

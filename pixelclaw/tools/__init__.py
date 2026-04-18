@@ -12,9 +12,11 @@ from .rotate import RotateTool
 from .pad import PadTool
 from .pixelate import PixelateTool
 from .posterize import PosterizeTool
+from .query import QueryTool
 from .remove_background import RemoveBackgroundTool
 from .revert import RevertTool
 from .separate_layers import SeparateLayersTool
+from .trim import TrimTool
 from .undo import UndoTool
 from .scale import ScaleTool
 from .set_active import SetActiveTool
@@ -23,7 +25,8 @@ from .soft_threshold import SoftThresholdTool
 __all__ = [
     "ApplyTool", "CloseDocsTool", "CropTool", "EditImageTool",
     "GenerateImageTool", "InspectTool", "MultiApplyTool",
-    "NewFromRegionTool", "NewImageTool", "PadTool", "PixelateTool", "PosterizeTool", "RemoveBackgroundTool", "RevertTool",
+    "NewFromRegionTool", "NewImageTool", "PadTool", "PixelateTool", "PosterizeTool",
+    "QueryTool", "RemoveBackgroundTool", "RevertTool",
     "RotateTool", "ScaleTool", "SeparateLayersTool", "SetActiveTool", "SoftThresholdTool",
-    "UndoTool", "VersionHistoryTool",
+    "TrimTool", "UndoTool", "VersionHistoryTool",
 ]

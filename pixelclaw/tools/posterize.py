@@ -102,7 +102,7 @@ class PosterizeTool(Tool):
         alpha = arr[:, :, 3] if has_alpha else None
 
         workspace.post_message(
-            f"Posterizing {w}×{h} with palette={palette}, blend_radius={blend_radius}…"
+            f"Posterizing with palette={palette}, blend_radius={blend_radius}…"
         )
 
         # Blur RGB for palette discovery (ignore speckle/texture).

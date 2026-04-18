@@ -53,4 +53,12 @@ Then added a posterize tool.  Ours is, I feel, better than the standard posteriz
 
 I've added a test_images folder with some standard images to work with, of several different kinds.  It's amazing what these tools can do — I took an image of a woman in the rain (including rain streaks in front of her face), removed the rain, removed the background, generated a jungle background, and then put the woman in the jungle.  All very easy!
 
+I'm proceeding today mostly by testing and fixing whatever jumps out at me.  Soon I'll need to get more organized about it, but for now this is as good a method as any, given the deep backlog of desireable features.  Added now:
+
+- Query and Trim tools
+- smarter background detection in Inspect tool
+- simple markdown rendering for the speech bubbles
+- an indeterminate progress indicator during long tasks
+- mouseover info (pixel position and color), and click to insert position/color into the chat
+
 

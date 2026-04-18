@@ -187,20 +187,27 @@ class InputField(Panel):
 
             # Selection highlight — same height as the text, not the full inner box
             sel = self._sel_range()
+            win_focused = rl.IsWindowFocused()
             if sel:
                 lo, hi = sel
                 sx = text_origin + self._char_x(lo)
                 sw = self._char_x(hi) - self._char_x(lo)
-                rl.DrawRectangle(
-                    int(sx), int(text_y),
-                    int(sw), int(self.font_size),
-                    _COLOR_SELECTION,
-                )
+                if win_focused:
+                    rl.DrawRectangle(
+                        int(sx), int(text_y),
+                        int(sw), int(self.font_size),
+                        _COLOR_SELECTION,
+                    )
+                else:
+                    rl.DrawRectangleLinesEx(
+                        rl.ffi.new("Rectangle *", [sx, text_y, sw, self.font_size])[0],
+                        _BORDER, _COLOR_SELECTION,
+                    )
 
             font.draw(self.text, text_origin, text_y, self.font_size, _COLOR_TEXT)
 
-            # Blinking cursor — only when focused and no active selection
-            if focused and not sel and int(rl.GetTime() / _BLINK_RATE) % 2 == 0:
+            # Blinking cursor — only when focused, window active, and no active selection
+            if focused and win_focused and not sel and int(rl.GetTime() / _BLINK_RATE) % 2 == 0:
                 cx = int(text_origin + self._char_x(self.cursor_pos))
                 rl.DrawRectangle(cx, int(text_y), _CURSOR_W, int(self.font_size), _COLOR_CURSOR)
 
@@ -365,3 +372,11 @@ class InputField(Panel):
         self.cursor_pos += 1
         self._clamp_scroll()
         return True
+
+    def insert_text(self, s: str) -> None:
+        """Insert *s* at the current cursor position, replacing any selection."""
+        self._delete_selection()
+        self.selection_anchor = None
+        self.text = self.text[:self.cursor_pos] + s + self.text[self.cursor_pos:]
+        self.cursor_pos += len(s)
+        self._clamp_scroll()

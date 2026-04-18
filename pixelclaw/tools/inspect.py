@@ -1,3 +1,5 @@
+from collections import Counter
+
 import numpy as np
 
 from agentcore.tool import Tool
@@ -16,7 +18,8 @@ class InspectTool(Tool):
         return (
             "Inspect pixel statistics for the active image or a rectangular sub-region. "
             "Returns per-channel min/max/mean, transparency breakdown, "
-            "the bounding box of non-transparent content, "
+            "the detected background color (transparent or a corner-matched RGB), "
+            "the tight bounding box of non-background content, "
             "and an 8×8 hex alpha map (0=transparent, F=opaque) for spatial orientation."
         )
 
@@ -70,18 +73,58 @@ class InspectTool(Tool):
             f"{100*n_opaque/total:.0f}% opaque"
         )
 
-        # Bounding box of non-transparent pixels
-        rows = np.any(alpha > 0, axis=1)
-        cols = np.any(alpha > 0, axis=0)
-        if rows.any():
-            r0, r1 = int(rows.argmax()), int(len(rows) - rows[::-1].argmax() - 1)
-            c0, c1 = int(cols.argmax()), int(len(cols) - cols[::-1].argmax() - 1)
-            lines.append(
-                f"Content bbox: x={x+c0}–{x+c1}, y={y+r0}–{y+r1} "
-                f"({c1-c0+1}×{r1-r0+1} px)"
-            )
+        # Background detection + content bbox
+        if n_transparent > 0:
+            # Transparency present — background is transparent
+            lines.append("Background: transparent")
+            rows_m = np.any(alpha > 0, axis=1)
+            cols_m = np.any(alpha > 0, axis=0)
+            if rows_m.any():
+                r0b = int(rows_m.argmax())
+                r1b = int(len(rows_m) - rows_m[::-1].argmax() - 1)
+                c0b = int(cols_m.argmax())
+                c1b = int(len(cols_m) - cols_m[::-1].argmax() - 1)
+                lines.append(
+                    f"Content bbox: x={x+c0b}–{x+c1b}, y={y+r0b}–{y+r1b} "
+                    f"({c1b-c0b+1}×{r1b-r0b+1} px)"
+                )
+            else:
+                lines.append("Content bbox: none (fully transparent)")
         else:
-            lines.append("Content bbox: none (fully transparent)")
+            # No transparency — try corner-based background detection
+            h_r, w_r = region.shape[:2]
+            corners = [
+                tuple(region[0,      0,      :3].tolist()),
+                tuple(region[0,      w_r-1,  :3].tolist()),
+                tuple(region[h_r-1,  0,      :3].tolist()),
+                tuple(region[h_r-1,  w_r-1,  :3].tolist()),
+            ]
+            (bg_rgb, bg_count) = Counter(corners).most_common(1)[0]
+            if bg_count >= 3:
+                rc, gc, bc = bg_rgb
+                bg_hex = f"#{rc:02X}{gc:02X}{bc:02X}"
+                lines.append(f"Background: {bg_hex} ({bg_count}/4 corners match)")
+                mask = ~(
+                    (region[:, :, 0] == rc) &
+                    (region[:, :, 1] == gc) &
+                    (region[:, :, 2] == bc)
+                )
+                rows_m = np.any(mask, axis=1)
+                cols_m = np.any(mask, axis=0)
+                if rows_m.any():
+                    r0b = int(rows_m.argmax())
+                    r1b = int(len(rows_m) - rows_m[::-1].argmax() - 1)
+                    c0b = int(cols_m.argmax())
+                    c1b = int(len(cols_m) - cols_m[::-1].argmax() - 1)
+                    lines.append(
+                        f"Content bbox: x={x+c0b}–{x+c1b}, y={y+r0b}–{y+r1b} "
+                        f"({c1b-c0b+1}×{r1b-r0b+1} px)"
+                    )
+                else:
+                    lines.append("Content bbox: none (image is entirely background color)")
+            else:
+                lines.append("Background: none detected (no transparency, corners differ)")
+                lines.append("Content bbox: full image (no background detected)")
 
         # Unique colors (RGB only, ignoring alpha)
         unique_colors = len(np.unique(region[:, :, :3].reshape(-1, 3), axis=0))
