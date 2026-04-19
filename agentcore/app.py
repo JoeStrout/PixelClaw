@@ -13,7 +13,7 @@ class App(ABC):
     def __init__(
         self,
         title: str,
-        width: int = 1280,
+        width: int = 1422,
         height: int = 800,
         window_flags: int = rl.FLAG_WINDOW_RESIZABLE,
         model: str = DEFAULT_MODEL,

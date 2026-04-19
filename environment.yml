@@ -19,3 +19,4 @@ dependencies:
     - kokoro-onnx
     - faster-whisper
     - sounddevice
+    - pyxelate @ git+https://github.com/sedthh/pyxelate.git

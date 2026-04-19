@@ -64,7 +64,7 @@ _SYMBOL_MAP = {
     '°': ' degrees', '%': ' percent', '&': 'and', '@': 'at',
     '\u2019': "'", '\u2018': "'", '\u201c': '"', '\u201d': '"',
     '\u2014': ', ', '\u2013': ' to ', '=': ' equals ', ' px': ' pixels',
-    '(s)': 's', 'i.e.': 'that is'
+    '(s)': 's', 'i.e.': 'that is',
 }
 
 
@@ -74,7 +74,7 @@ _REGEX_MAP = [
     (r'\*(.+?)\*',      r'\1',          0),               # italic
     (r'`+(.+?)`+',      r'\1',          0),               # code
     (r'^#{1,6}\s*',     r'',            re.MULTILINE),    # headings
-    (r'(\S)\.(\S)',     r'\1 dot \2',   0),               # intra-token dots: file.png → "file dot png"
+    (r'(\w{2,})\.(\S)',  r'\1 dot \2', 0),                   # intra-token dots: file.png → "file dot png"; skips e.g./i.e.
     (r'(\d)px',         r'\1 pixels',   0),               # 256px → 256 pixels
 ]
 
@@ -154,7 +154,8 @@ if __name__ == "__main__":
     #sample_text = "Hello! This is a test of the text-to-speech system. This image is 1024 by 768 pixels."
     #sample_text = "Hello! 👋  Tell me what you’d like to do with your image(s)—e.g., crop/resize, remove background, pixelate, or edit something specific."
     #sample_text = "Updated `alpha_channel.png` to be a **grayscale rendering of `bear_trouble.png`’s alpha** and made `alpha_channel.png` **fully opaque**."
-    sample_text = "Padded the image to **1024×1024** by adding **256px** on all sides."
+    #sample_text = "Padded the image to **1024×1024** by adding **256px** on all sides."
+    sample_text = "Load a file, e.g., somePicture.png."
 
     if len(sys.argv) > 1:
         voices_to_test = sys.argv[1:]

@@ -124,8 +124,6 @@ class PixelateTool(Tool):
                 dither: str = "none",
                 upscale: int = 1,
                 svd: bool = False) -> str:
-        from pyxelate import Pyx
-
         doc = workspace.active_document
         if doc is None or doc.image is None:
             return "Error: no active image."
@@ -160,6 +158,7 @@ class PixelateTool(Tool):
             rgb = working
 
         try:
+            from pyxelate import Pyx
             pyx = Pyx(factor=resolved_factor, palette=palette,
                       dither=dither, upscale=upscale, svd=svd)
             pyx.fit(rgb)

@@ -277,3 +277,51 @@ Bootstrapped the project from scratch.
 **`close_documents` tool update**
 - Added `"active"` as a special value alongside `"all except active"`, so the LLM can close the current document with a single short invocation.
 
+---
+
+## Apr 19 2026
+
+**Speech-to-text (STT)** (`agentcore/stt.py`)
+- New module using `faster-whisper` (`base.en` model, ~145 MB, downloaded on first use) and `sounddevice` for microphone capture.
+- `preload()` warms up the Whisper model in a background thread at app launch.
+- `start_recording()` begins buffering mic audio on a daemon thread via `sounddevice.InputStream` (16 kHz, mono, float32, 50 ms chunks).
+- Two commit modes chosen at key-release time:
+  - `commit_immediate()` — push-to-talk: stop capture now and transcribe everything buffered.
+  - `commit_vad()` — tap mode: keep capturing; stop automatically after 1 s of post-speech silence (energy-based VAD, RMS threshold 0.02); after 5 s with no speech detected, cancel and print a diagnostic message.
+- `cancel()` aborts any active session without transcribing.
+- `state()` returns `"idle"` / `"recording"` / `"transcribing"` for UI polling.
+- Recordings below the minimum energy floor are not sent to Whisper (avoids hallucinated output on silence).
+- Includes a `__main__` test block (VAD mode, 15 s timeout).
+
+**STT integration in ChatPanel** (`agentcore/chatpanel.py`)
+- Mic button drawn to the right of the input field: 28 px wide, shifted 2 px above the input baseline, icon (12×24, half-scale from `MicIcon.png`) tinted gray/pulsing-red/amber for idle/recording/transcribing states. "F5" label drawn in small gray text below the icon.
+- Clicking the mic button starts recording + VAD mode (click again to cancel).
+- `on_mic_press()` / `on_mic_release()` called by `PixelClawApp._process_input` for the F5 key; distinguishes brief press (< 300 ms → VAD mode) from long press (≥ 300 ms → push-to-talk mode), matching the Apple-menu press convention.
+- Transcription results are delivered to the main thread via a `queue.SimpleQueue` drained at the start of each `draw()` call; inserted at the cursor via `InputField.insert_text()`.
+- Starting any recording immediately calls `speech.stop()` to cut off any active TTS playback.
+
+**TTS stop** (`agentcore/speech.py`)
+- New `stop()` function: sets a `threading.Event` that the `_play_raylib` playback loop checks between each 10 ms sleep; calls `StopSound` and exits immediately when set.
+- `_play_raylib` clears the event at the start of each new utterance so normal playback is unaffected.
+
+**F5 key binding** (`pixelclaw/main.py`)
+- F5 chosen for STT trigger (F2 was intercepted by the user's keyboard remapping utility).
+- `IsKeyPressed(KEY_F5)` → `on_mic_press()`; `IsKeyReleased(KEY_F5)` → `on_mic_release()` polled each frame in `_process_input`, before panel key routing.
+- `preload_stt()` called in `on_start()` alongside `preload_speech()`.
+
+**macOS dual-OpenMP crash fix**
+- `faster-whisper` (CTranslate2) links `libiomp5`; `numpy`/`scipy` link `libomp`. Both being loaded in the same process caused a SIGSEGV in OpenMP thread-barrier initialization.
+- Fix: `os.environ.setdefault("KMP_DUPLICATE_LIB_OK", "TRUE")` set before all other imports; `WhisperModel` created with `cpu_threads=1, num_workers=1` to prevent CTranslate2 from creating a thread pool, eliminating the conflict entirely.
+
+**InputField: Cmd+A/C/X/V** (`agentcore/inputfield.py`)
+- Added `_super()` helper (`KEY_LEFT_SUPER` / `KEY_RIGHT_SUPER`).
+- All four clipboard shortcuts (A, C, X, V) now accept either Ctrl or Cmd as the modifier; the existing Ctrl-only guard widened to `(ctrl or _super()) and not _alt()`.
+
+**README — Installation section**
+- New "Installation" section with a 3-step clone/create/run code block and a macOS-only platform note.
+- Runtime Downloads table updated to include the Whisper `base.en` model (~145 MB).
+
+**New dependencies** (`environment.yml`)
+- `faster-whisper` (pip) — Whisper inference via CTranslate2.
+- `sounddevice` (pip) — cross-platform microphone capture via PortAudio.
+
