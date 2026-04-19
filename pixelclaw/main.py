@@ -18,6 +18,7 @@ from .layout import LayoutManager
 from .mainpanel import MainPanel
 from . import textures
 from .ml_deps import ensure_packages
+from agentcore.speech import speak
 from .tools import (ApplyTool, CloseDocsTool, CropTool, EditImageTool, GenerateImageTool,
                     InspectTool, MultiApplyTool, NewFromRegionTool, NewImageTool, PadTool,
                     PixelateTool, PosterizeTool, QueryTool, RemoveBackgroundTool, RenameDocumentTool,
@@ -203,6 +204,7 @@ class PixelClawApp(App):
             reply = self._reply_queue.get_nowait()
             self.chat.thinking = False
             self.chat.add_entry(reply, "agent")
+            speak(reply)
             for doc in self.workspace.documents:
                 textures.invalidate_thumbnail(doc)
                 textures.invalidate_display(doc)

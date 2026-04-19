@@ -6,6 +6,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 PixelClaw is a desktop image manipulation app: a Raylib UI + Anthropic LLM agent harness. Most operations are driven by the LLM via tools. It is the prototype for a future suite of "Claw" apps (SoundClaw, PDFClaw, etc.); `agentcore` will eventually become a standalone package.
 
+## Platform policy
+
+Code must be cross-platform (macOS, Windows, Linux) **except** in `agentcore/file_dialogs.py`, which is the designated home for any platform-specific file-dialog logic. Do not use `afplay`, `AppleScript`, `pyobjc`, or other macOS-only APIs outside that module.
+
 ## Environment
 
 micromamba, environment name `pixelclaw`. Run with:

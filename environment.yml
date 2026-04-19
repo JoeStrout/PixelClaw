@@ -12,7 +12,10 @@ dependencies:
   - numba          # required by pymatting → rembg; conda has pre-built binaries
   - pip:
     - raylib
+    - librosa
+    - sounddevice
     - anthropic
     - litellm
     - rembg[cpu]
     - pyobjc-framework-Cocoa; sys_platform == "darwin"
+    - supertonic
