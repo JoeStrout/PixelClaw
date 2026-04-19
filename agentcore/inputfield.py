@@ -24,6 +24,9 @@ _COLOR_CURSOR         = (40,   40,  40, 255)
 def _ctrl() -> bool:
     return rl.IsKeyDown(rl.KEY_LEFT_CONTROL) or rl.IsKeyDown(rl.KEY_RIGHT_CONTROL)
 
+def _super() -> bool:
+    return rl.IsKeyDown(rl.KEY_LEFT_SUPER) or rl.IsKeyDown(rl.KEY_RIGHT_SUPER)
+
 def _shift() -> bool:
     return rl.IsKeyDown(rl.KEY_LEFT_SHIFT) or rl.IsKeyDown(rl.KEY_RIGHT_SHIFT)
 
@@ -50,10 +53,10 @@ class InputField(Panel):
     Backspace / Delete         delete selection or adjacent character (auto-repeat)
     Alt+Backspace              delete word to the left
     Alt+Delete                 delete word to the right
-    Ctrl+A                     select all
-    Ctrl+C                     copy selection
-    Ctrl+X                     cut selection
-    Ctrl+V                     paste clipboard
+    Ctrl/Cmd+A                 select all
+    Ctrl/Cmd+C                 copy selection
+    Ctrl/Cmd+X                 cut selection
+    Ctrl/Cmd+V                 paste clipboard
     Enter / KP_Enter           call on_submit(text) and clear the field
     Escape                     clear selection
     """
@@ -252,8 +255,8 @@ class InputField(Panel):
         shift = _shift()
         word  = _alt() or ctrl   # word-movement modifier: Alt (primary) or Ctrl
 
-        # --- Ctrl-only shortcuts (not shared with word movement) ---
-        if ctrl and not _alt():
+        # --- Ctrl/Cmd shortcuts (not shared with word movement) ---
+        if (ctrl or _super()) and not _alt():
             if key == rl.KEY_A:
                 self.selection_anchor = 0
                 self.cursor_pos = len(self.text)

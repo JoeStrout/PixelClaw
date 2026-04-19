@@ -17,3 +17,5 @@ dependencies:
     - rembg[cpu]
     - pyobjc-framework-Cocoa; sys_platform == "darwin"
     - kokoro-onnx
+    - faster-whisper
+    - sounddevice

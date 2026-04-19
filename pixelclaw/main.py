@@ -1,4 +1,5 @@
 import os
+os.environ.setdefault("KMP_DUPLICATE_LIB_OK", "TRUE")  # prevent libomp/libiomp5 dual-runtime crash
 import queue
 import threading
 from pathlib import Path
@@ -20,6 +21,7 @@ from .mainpanel import MainPanel
 from . import textures
 from .ml_deps import ensure_packages
 from agentcore.speech import speak, preload as preload_speech
+from agentcore.stt import preload as preload_stt
 from .tools import (ApplyTool, CloseDocsTool, CropTool, EditImageTool, GenerateImageTool,
                     InspectTool, MultiApplyTool, NewFromRegionTool, NewImageTool, PadTool,
                     PixelateTool, PosterizeTool, QueryTool, RemoveBackgroundTool, RenameDocumentTool,
@@ -62,6 +64,7 @@ class PixelClawApp(App):
     def on_start(self) -> None:
         rl.InitAudioDevice()
         preload_speech()
+        preload_stt()
         self._reply_queue: queue.Queue[str] = queue.Queue()
         self._save_key  = _find_key_for_char('s')
         self._open_key  = _find_key_for_char('o')
@@ -124,6 +127,10 @@ class PixelClawApp(App):
         if rl.IsKeyPressed(rl.KEY_TAB):
             self.root.set_focus(self.chat)
             self.chat.set_focus(self.chat._input)
+        if rl.IsKeyPressed(rl.KEY_F5):
+            self.chat.on_mic_press()
+        if rl.IsKeyReleased(rl.KEY_F5):
+            self.chat.on_mic_release()
         super()._process_input()
         self._window_focused = rl.IsWindowFocused()
 

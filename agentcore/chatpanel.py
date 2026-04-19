@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+import queue
+import time
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Callable
 
 import raylib as rl
 
@@ -10,6 +13,15 @@ from .mdrender import parse, wrap_runs, draw_runs
 from .ninepatch import NinePatch
 from .panel import Panel
 from .resources import default_font, style_font_map
+
+try:
+    from . import stt as _stt
+    _STT_AVAILABLE = True
+except Exception:
+    _stt = None          # type: ignore[assignment]
+    _STT_AVAILABLE = False
+
+from . import speech as _speech
 
 _RESOURCES = Path(__file__).parent / "resources"
 
@@ -29,6 +41,17 @@ _SCROLL_SPEED = 40
 _INPUT_HEIGHT = 36
 # Vertical margin above/below the input field
 _INPUT_MARGIN = 6
+# Mic button dimensions (icon is 24×48, drawn at half scale → 12×24 logical px)
+_MIC_BTN_W    = 28
+_MIC_BTN_GAP  = 4
+_MIC_ICON_W   = 12
+_MIC_ICON_H   = 24
+# Long-press threshold in seconds
+_LONG_PRESS_S = 0.3
+# Mic button tints by STT state
+_TINT_IDLE         = (160, 160, 160, 255)
+_TINT_RECORDING    = (220,  60,  60, 255)
+_TINT_TRANSCRIBING = (200, 150,  50, 255)
 # Seconds before the thinking indicator appears
 _THINKING_DELAY = 5.0
 # Vertical space reserved for the thinking dots
@@ -48,6 +71,10 @@ class ChatPanel(Panel):
     Each entry is rendered as text laid over a 9-slice speech balloon.
     Agent messages use speechBalloonLeft; user messages use speechBalloonRight.
     Scroll the transcript with the mouse wheel.
+
+    Speech-to-text (F5 or mic button click):
+      Brief press  → record until 1 s of silence, then transcribe.
+      Long press   → record while held; release immediately transcribes.
     """
 
     def __init__(self, name: str, x: float = 0, y: float = 0,
@@ -62,10 +89,15 @@ class ChatPanel(Panel):
         # Loaded lazily on first draw (requires an OpenGL context)
         self._balloon_left:  NinePatch | None = None
         self._balloon_right: NinePatch | None = None
+        self._mic_texture = None    # loaded lazily
 
         self.thinking: bool = False
         self._thinking_start: float = 0.0
         self._thinking_shown: bool = False  # tracks first-visible frame for auto-scroll
+
+        # STT state
+        self._f2_press_time: float | None = None    # monotonic time of F2 press
+        self._stt_queue: queue.SimpleQueue[str | None] = queue.SimpleQueue()
 
         # Input field — position/size kept in sync with panel size
         self._input = InputField(
@@ -89,7 +121,7 @@ class ChatPanel(Panel):
     def _layout_input(self) -> None:
         self._input.x      = _INPUT_MARGIN
         self._input.y      = self._input_y()
-        self._input.width  = self.width - _INPUT_MARGIN * 2
+        self._input.width  = self.width - _INPUT_MARGIN * 2 - _MIC_BTN_W - _MIC_BTN_GAP
         self._input.height = _INPUT_HEIGHT
 
     # Override width/height setters to re-layout when the panel is resized
@@ -133,6 +165,57 @@ class ChatPanel(Panel):
             self.add_entry(text, "user")
 
     # ------------------------------------------------------------------
+    # Speech-to-text  (called by PixelClawApp._process_input for F2,
+    # and by on_mouse_press for mic button clicks)
+    # ------------------------------------------------------------------
+
+    def on_mic_press(self) -> None:
+        """Call when F5 is pressed."""
+        if not _STT_AVAILABLE:
+            return
+        if _stt.state() != "idle":
+            return
+        print("[stt] F5 down — recording started")
+        _speech.stop()
+        self._f2_press_time = time.monotonic()
+        _stt.start_recording()
+
+    def on_mic_release(self) -> None:
+        """Call when F5 is released; chooses VAD vs immediate mode."""
+        if not _STT_AVAILABLE:
+            return
+        if _stt.state() != "recording" or self._f2_press_time is None:
+            return
+        held = time.monotonic() - self._f2_press_time
+        self._f2_press_time = None
+        if held >= _LONG_PRESS_S:
+            print(f"[stt] F2 up after {held:.2f}s — push-to-talk mode")
+            _stt.commit_immediate(self._stt_queue.put)
+        else:
+            print(f"[stt] F2 up after {held:.2f}s — VAD mode")
+            _stt.commit_vad(self._stt_queue.put)
+
+    def _mic_btn_rect(self) -> tuple[float, float, float, float]:
+        """Local-space (x, y, w, h) of the mic button."""
+        x = self.width - _INPUT_MARGIN - _MIC_BTN_W
+        y = self._input_y() - 2
+        return x, y, _MIC_BTN_W, _INPUT_HEIGHT
+
+    def on_mouse_press(self, lx: float, ly: float, button: int) -> bool:
+        if button == rl.MOUSE_BUTTON_LEFT:
+            bx, by, bw, bh = self._mic_btn_rect()
+            if bx <= lx < bx + bw and by <= ly < by + bh:
+                if _STT_AVAILABLE:
+                    if _stt.state() == "idle":
+                        _speech.stop()
+                        _stt.start_recording()
+                        _stt.commit_vad(self._stt_queue.put)
+                    else:
+                        _stt.cancel()
+                return True
+        return False
+
+    # ------------------------------------------------------------------
     # Lazy resource loading
     # ------------------------------------------------------------------
 
@@ -140,6 +223,9 @@ class ChatPanel(Panel):
         if self._balloon_left is None:
             self._balloon_left  = NinePatch(_RESOURCES / "speechBalloonLeft.png")
             self._balloon_right = NinePatch(_RESOURCES / "speechBalloonRight.png")
+        if self._mic_texture is None:
+            mic_path = str(_RESOURCES / "MicIcon.png").encode()
+            self._mic_texture = rl.LoadTexture(mic_path)
 
     def unload(self) -> None:
         if self._balloon_left:
@@ -148,6 +234,9 @@ class ChatPanel(Panel):
         if self._balloon_right:
             self._balloon_right.unload()
             self._balloon_right = None
+        if self._mic_texture is not None:
+            rl.UnloadTexture(self._mic_texture)
+            self._mic_texture = None
 
     # ------------------------------------------------------------------
     # Layout helpers
@@ -172,6 +261,14 @@ class ChatPanel(Panel):
         super().draw()   # background fill
         self._ensure_loaded()
         self._recompute_content_height()
+
+        # Drain STT results delivered from background thread
+        while not self._stt_queue.empty():
+            text = self._stt_queue.get_nowait()
+            if text:
+                self._input.insert_text(text)
+            else:
+                print("[stt] transcription returned nothing")
 
         font = default_font()
         _, line_h = font.measure("Ag", self.font_size)
@@ -218,6 +315,34 @@ class ChatPanel(Panel):
             self._thinking_shown = False
 
         rl.EndScissorMode()
+
+        # Mic button (drawn outside scissor so it's always visible)
+        if self._mic_texture is not None and _STT_AVAILABLE:
+            stt_state = _stt.state()
+            if stt_state == "recording":
+                tint = _TINT_RECORDING
+                # Pulse alpha to signal active recording
+                pulse = int(180 + 75 * abs((rl.GetTime() % 1.0) * 2 - 1))
+                tint = (_TINT_RECORDING[0], _TINT_RECORDING[1], _TINT_RECORDING[2], pulse)
+            elif stt_state == "transcribing":
+                tint = _TINT_TRANSCRIBING
+            else:
+                tint = _TINT_IDLE
+            bx, by, bw, bh = self._mic_btn_rect()
+            icon_x = int(self.abs_x + bx + (bw - _MIC_ICON_W) / 2)
+            icon_y = int(self.abs_y + by + (bh - _MIC_ICON_H) / 2)
+            src = rl.ffi.new("Rectangle *", [0.0, 0.0, 24.0, 48.0])
+            dst = rl.ffi.new("Rectangle *",
+                             [float(icon_x), float(icon_y),
+                              float(_MIC_ICON_W), float(_MIC_ICON_H)])
+            origin = rl.ffi.new("Vector2 *", [0.0, 0.0])
+            rl.DrawTexturePro(self._mic_texture, src[0], dst[0], origin[0], 0.0, tint)
+            label_size = 9.0
+            font = default_font()
+            lw, _ = font.measure("F5", label_size)
+            label_x = self.abs_x + bx + (bw - lw) / 2
+            label_y = icon_y + _MIC_ICON_H + 1
+            font.draw("F5", label_x, label_y, label_size, (120, 120, 120, 200))
 
     def _recompute_content_height(self) -> None:
         total = sum(self._entry_height(e) + _BALLOON_GAP for e in self.entries)

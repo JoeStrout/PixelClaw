@@ -24,6 +24,7 @@ _VOICES_URL = "https://github.com/thewh1teagle/kokoro-onnx/releases/download/mod
 
 _kokoro = None
 _init_lock = threading.Lock()
+_stop_evt = threading.Event()
 
 
 def _get_engine():
@@ -74,6 +75,7 @@ _REGEX_MAP = [
     (r'`+(.+?)`+',      r'\1',          0),               # code
     (r'^#{1,6}\s*',     r'',            re.MULTILINE),    # headings
     (r'(\S)\.(\S)',     r'\1 dot \2',   0),               # intra-token dots: file.png → "file dot png"
+    (r'(\d)px',         r'\1 pixels',   0),               # 256px → 256 pixels
 ]
 
 
@@ -99,10 +101,17 @@ def _play_raylib(audio: np.ndarray, sample_rate: int) -> None:
         "data": buf,
     })
     sound = rl.LoadSoundFromWave(wave[0])
+    _stop_evt.clear()
     rl.PlaySound(sound)
-    while rl.IsSoundPlaying(sound):
+    while rl.IsSoundPlaying(sound) and not _stop_evt.is_set():
         time.sleep(0.01)
+    rl.StopSound(sound)
     rl.UnloadSound(sound)
+
+
+def stop() -> None:
+    """Interrupt any currently playing TTS immediately."""
+    _stop_evt.set()
 
 
 def preload() -> None:
@@ -144,7 +153,8 @@ if __name__ == "__main__":
 
     #sample_text = "Hello! This is a test of the text-to-speech system. This image is 1024 by 768 pixels."
     #sample_text = "Hello! 👋  Tell me what you’d like to do with your image(s)—e.g., crop/resize, remove background, pixelate, or edit something specific."
-    sample_text = "Updated `alpha_channel.png` to be a **grayscale rendering of `bear_trouble.png`’s alpha** and made `alpha_channel.png` **fully opaque**."
+    #sample_text = "Updated `alpha_channel.png` to be a **grayscale rendering of `bear_trouble.png`’s alpha** and made `alpha_channel.png` **fully opaque**."
+    sample_text = "Padded the image to **1024×1024** by adding **256px** on all sides."
 
     if len(sys.argv) > 1:
         voices_to_test = sys.argv[1:]

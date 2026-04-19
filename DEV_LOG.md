@@ -75,6 +75,12 @@ On the bright side, I've long wanted a chance to try adding some sort of audio m
 
 I'm giving up on Supertonic and switching to Kokoro (https://huggingface.co/spaces/hexgrad/Kokoro-TTS), a very well-known open-weight (Apache 2 license) TTS model with 54 voices to choose from.  It's only 80M parameters too.  And a quick test with the online demo shows it has no trouble reading numbers.
 
+This is working really well.  I love the bf_emma voice, and it works really well with the quick echo (I need to come up with a better name for that effect).
+
+Then, added STT using the WhisperFast library.  Rather than a wake word, I'm providing two ways to activate transcription: tap or hold F5, or click a mic icon next to the input field.  Transcription goes into the text field and you then have to press Return to send it.  The idea there was to give you a chance to edit before sending, but I'm not sure I love it in this case; the transcription seems so reliable, the only cause for editing would be when you stumble over your own instructions.
+
+At some point I'll need to add a Settings UI, and we'll need options for all this stuff.
+
 
 
 
