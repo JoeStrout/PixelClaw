@@ -126,6 +126,7 @@ class MainPanel(Panel):
             h_img, w_img = img.shape[:2]
             px = max(0, min(px, w_img - 1))
             py = max(0, min(py, h_img - 1))
+            self._context.mouse_image_pos = (px, py)
             pixel = img[py, px]
             r = int(pixel[0]) if len(pixel) > 0 else 0
             g = int(pixel[1]) if len(pixel) > 1 else 0
@@ -150,6 +151,8 @@ class MainPanel(Panel):
                 sw, _ = font.measure(seg, _PIXEL_SIZE)
                 font.draw(seg, cx, gutter_y, _PIXEL_SIZE, color)
                 cx += sw
+        else:
+            self._context.mouse_image_pos = None
 
     # ------------------------------------------------------------------
     # Mouse input — click on image inserts pixel info into the input field

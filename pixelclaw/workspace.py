@@ -8,6 +8,8 @@ class ImageWorkspace(Context[ImageDocument]):
         super().__init__()
         # Pixel-space selection rectangle (x, y, width, height), or None
         self.selection: tuple[int, int, int, int] | None = None
+        # Image-space mouse position while hovering over the main panel, or None
+        self.mouse_image_pos: tuple[int, int] | None = None
 
     def render_context(self) -> str:
         lines = ["## Current Context\n"]
@@ -39,5 +41,9 @@ class ImageWorkspace(Context[ImageDocument]):
             lines.append(f"\n**Selection:** x={x}, y={y}, w={w}, h={h}")
         else:
             lines.append("\n**Selection:** none")
+
+        if self.mouse_image_pos:
+            mx, my = self.mouse_image_pos
+            lines.append(f"\n**User is pointing at:** ({mx}, {my})")
 
         return "\n".join(lines)

@@ -1,3 +1,4 @@
+import os
 import queue
 import threading
 from pathlib import Path
@@ -18,7 +19,7 @@ from .layout import LayoutManager
 from .mainpanel import MainPanel
 from . import textures
 from .ml_deps import ensure_packages
-from agentcore.speech import speak
+from agentcore.speech import speak, preload as preload_speech
 from .tools import (ApplyTool, CloseDocsTool, CropTool, EditImageTool, GenerateImageTool,
                     InspectTool, MultiApplyTool, NewFromRegionTool, NewImageTool, PadTool,
                     PixelateTool, PosterizeTool, QueryTool, RemoveBackgroundTool, RenameDocumentTool,
@@ -59,6 +60,8 @@ class PixelClawApp(App):
         ]
 
     def on_start(self) -> None:
+        rl.InitAudioDevice()
+        preload_speech()
         self._reply_queue: queue.Queue[str] = queue.Queue()
         self._save_key  = _find_key_for_char('s')
         self._open_key  = _find_key_for_char('o')
@@ -195,6 +198,7 @@ class PixelClawApp(App):
         self.main.unload()
         self.header.unload()
         textures.unload_all()
+        rl.CloseAudioDevice()
 
     def update(self) -> None:
         while not self.workspace.message_queue.empty():
@@ -248,9 +252,12 @@ def _save_pil(image: np.ndarray, path: Path) -> None:
 def main() -> None:
     ensure_packages()
     root = Path(__file__).parent.parent
-    api_key = (root / "api_key.secret").read_text().strip() if (root / "api_key.secret").exists() else None
+    api_key_file = root / "api_key.secret"
+    api_key = (api_key_file.read_text().strip() if api_key_file.exists()
+               else os.environ.get("OPENAI_API_KEY"))
     openai_key_file = root / "openai_key.secret"
-    openai_key = openai_key_file.read_text().strip() if openai_key_file.exists() else api_key
+    openai_key = (openai_key_file.read_text().strip() if openai_key_file.exists()
+                  else os.environ.get("OPENAI_API_KEY") or api_key)
     PixelClawApp(title="PixelClaw", api_key=api_key, openai_key=openai_key).run()
 
 

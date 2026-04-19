@@ -100,14 +100,15 @@ class InspectTool(Tool):
                 tuple(region[h_r-1,  w_r-1,  :3].tolist()),
             ]
             (bg_rgb, bg_count) = Counter(corners).most_common(1)[0]
-            if bg_count >= 3:
+            if bg_count >= 2:
                 rc, gc, bc = bg_rgb
                 bg_hex = f"#{rc:02X}{gc:02X}{bc:02X}"
                 lines.append(f"Background: {bg_hex} ({bg_count}/4 corners match)")
+                tol = 15
                 mask = ~(
-                    (region[:, :, 0] == rc) &
-                    (region[:, :, 1] == gc) &
-                    (region[:, :, 2] == bc)
+                    (np.abs(region[:, :, 0].astype(np.int16) - rc) <= tol) &
+                    (np.abs(region[:, :, 1].astype(np.int16) - gc) <= tol) &
+                    (np.abs(region[:, :, 2].astype(np.int16) - bc) <= tol)
                 )
                 rows_m = np.any(mask, axis=1)
                 cols_m = np.any(mask, axis=0)

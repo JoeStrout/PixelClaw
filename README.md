@@ -13,6 +13,20 @@ This project aims to be a sophisticated AI agent specialized for manipulating im
 
 That's not a mock-up; this was an actual image editing session done with PixelClaw.  See the [screenshots](screenshots/) folder for more.
 
+## API Key Required
+
+Image generation and editing rely on network access to GPT-image-1; the agent LLM is currently using gpt-5.4-nano.  Both require an OpenAI API key.  This must be stored in either a file called `api_key.secret` at the project root, or an environment variable called `OPENAI_API_KEY`.
+
+## Runtime Downloads
+
+Some features download large files on first use. Nothing is downloaded until you actually invoke the feature.
+
+| Feature | What | Size | Location |
+|---|---|---|---|
+| Text-to-speech | Kokoro-ONNX model + voices | ~300 MB | `~/.cache/kokoro-onnx/` |
+| Background removal | rembg model (varies by model choice) | 100–370 MB | `~/.cache/huggingface/hub/` |
+| Image generation / editing | GPT-image-1 (OpenAI API) | — | network only |
+
 ## Give us a star!
 
 This project is free and open-source.

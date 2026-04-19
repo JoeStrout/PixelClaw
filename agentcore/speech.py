@@ -1,51 +1,59 @@
-"""Text-to-speech. Replace this module to swap TTS backends."""
+"""Text-to-speech using Kokoro-ONNX.
+
+Model files are downloaded automatically on first use to ~/.cache/kokoro-onnx/.
+
+Raylib audio (miniaudio) is used for playback. Unlike OpenGL/textures, miniaudio
+is thread-safe and can be called from background threads. InitAudioDevice() must
+be called before first use — the app calls it in on_start().
+"""
 
 import re
 import threading
+import time
+import urllib.request
+from pathlib import Path
 
-# sounddevice is used instead of Raylib audio because _speak_worker runs on a
-# background thread and Raylib audio (like textures) requires the main thread.
-# librosa is used for pitch-preserving time-stretch; Raylib has no equivalent.
-import librosa
 import numpy as np
-import sounddevice as sd
 
-VOICE = "F3"
-SPEED = 1.0        # synthesize slowly for reliability; supertonic garbles at high speeds
-PLAYBACK_RATE = 1.4  # pitch-preserving time-stretch applied at playback via librosa
+VOICE = "bf_emma"
+SPEED = 1.2
 
+_RESOURCES = Path.home() / ".cache" / "kokoro-onnx"
+_MODEL_URL  = "https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.0/kokoro-v1.0.onnx"
+_VOICES_URL = "https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.0/voices-v1.0.bin"
 
-def mod_ring(audio: np.ndarray, duration: float, hz: float = 75.0) -> np.ndarray:
-    n = audio.shape[-1]
-    t = np.linspace(0, duration, n, endpoint=False)
-    return (audio * np.sin(2 * np.pi * hz * t)).astype(audio.dtype)
-
-
-def mod_echo(audio: np.ndarray, duration: float, delay_s: float = 0.020, amp: float = 0.50) -> np.ndarray:
-    sr = audio.shape[-1] / duration
-    d = int(sr * delay_s)
-    echo = np.zeros_like(audio)
-    echo[..., d:] = audio[..., :-d] * amp
-    return (audio + echo).astype(audio.dtype)
-
-_tts = None
-_style = None
+_kokoro = None
 _init_lock = threading.Lock()
 
 
 def _get_engine():
-    global _tts, _style
+    global _kokoro
     with _init_lock:
-        if _tts is None:
-            from supertonic import TTS
-            _tts = TTS(auto_download=True)
-            _style = _tts.get_voice_style(voice_name=VOICE)
-    return _tts, _style
+        if _kokoro is None:
+            from kokoro_onnx import Kokoro
+            _RESOURCES.mkdir(parents=True, exist_ok=True)
+            model_path  = _RESOURCES / "kokoro-v1.0.onnx"
+            voices_path = _RESOURCES / "voices-v1.0.bin"
+            if not model_path.exists():
+                print("[speech] Downloading kokoro model...", flush=True)
+                urllib.request.urlretrieve(_MODEL_URL, model_path)
+            if not voices_path.exists():
+                print("[speech] Downloading kokoro voices...", flush=True)
+                urllib.request.urlretrieve(_VOICES_URL, voices_path)
+            _kokoro = Kokoro(str(model_path), str(voices_path))
+    return _kokoro
 
 
-def speak(text: str) -> None:
-    """Speak text asynchronously; returns immediately."""
-    threading.Thread(target=_speak_worker, args=(text,), daemon=True).start()
+def mod_ring(audio: np.ndarray, sample_rate: int, hz: float = 75.0) -> np.ndarray:
+    t = np.linspace(0, len(audio) / sample_rate, len(audio), endpoint=False)
+    return (audio * np.sin(2 * np.pi * hz * t)).astype(audio.dtype)
+
+
+def mod_echo(audio: np.ndarray, sample_rate: int, delay_s: float = 0.020, amp: float = 0.50) -> np.ndarray:
+    d = int(sample_rate * delay_s)
+    echo = np.zeros_like(audio)
+    echo[d:] = audio[:-d] * amp
+    return (audio + echo).astype(audio.dtype)
 
 
 _SYMBOL_MAP = {
@@ -54,76 +62,124 @@ _SYMBOL_MAP = {
     '≥': 'greater than or equal to', '→': 'to', '←': 'from',
     '°': ' degrees', '%': ' percent', '&': 'and', '@': 'at',
     '\u2019': "'", '\u2018': "'", '\u201c': '"', '\u201d': '"',
-    '\u2014': ', ', '\u2013': ' to ',
-    '=': ' equals ',
-    ' px' ' pixels'
+    '\u2014': ', ', '\u2013': ' to ', '=': ' equals ', ' px': ' pixels',
+    '(s)': 's', 'i.e.': 'that is'
 }
 
+
+# (pattern, replacement, flags) applied in order before symbol substitution
+_REGEX_MAP = [
+    (r'\*\*(.+?)\*\*',  r'\1',          0),               # bold
+    (r'\*(.+?)\*',      r'\1',          0),               # italic
+    (r'`+(.+?)`+',      r'\1',          0),               # code
+    (r'^#{1,6}\s*',     r'',            re.MULTILINE),    # headings
+    (r'(\S)\.(\S)',     r'\1 dot \2',   0),               # intra-token dots: file.png → "file dot png"
+]
+
+
 def _clean(text: str) -> str:
-    text = re.sub(r'\*\*(.+?)\*\*', r'\1', text)   # bold
-    text = re.sub(r'\*(.+?)\*', r'\1', text)        # italic
-    text = re.sub(r'`+(.+?)`+', r'\1', text)        # code
-    text = re.sub(r'^#{1,6}\s*', '', text, flags=re.MULTILINE)  # headings
+    for pat, rep, flags in _REGEX_MAP:
+        text = re.sub(pat, rep, text, flags=flags)
     for sym, word in _SYMBOL_MAP.items():
         text = text.replace(sym, word)
     return text.encode('ascii', errors='ignore').decode('ascii')
 
 
+def _play_raylib(audio: np.ndarray, sample_rate: int) -> None:
+    import raylib as rl
+    audio = audio.astype(np.float32)
+    n = len(audio)
+    buf = rl.ffi.new(f"float[{n}]")
+    rl.ffi.buffer(buf)[:] = audio.tobytes()
+    wave = rl.ffi.new("Wave *", {
+        "frameCount": n,
+        "sampleRate": sample_rate,
+        "sampleSize": 32,
+        "channels": 1,
+        "data": buf,
+    })
+    sound = rl.LoadSoundFromWave(wave[0])
+    rl.PlaySound(sound)
+    while rl.IsSoundPlaying(sound):
+        time.sleep(0.01)
+    rl.UnloadSound(sound)
+
+
+def preload() -> None:
+    """Start loading the TTS engine in the background; call at app launch."""
+    threading.Thread(target=_get_engine, daemon=True).start()
+
+
+def speak(text: str) -> None:
+    """Speak text asynchronously; returns immediately."""
+    threading.Thread(target=_speak_worker, args=(text,), daemon=True).start()
+
+
 def _speak_worker(text: str) -> None:
     try:
-        tts, style = _get_engine()
+        kokoro = _get_engine()
         clean_text = _clean(text)
-        print(f"TTS: {clean_text}")
-        audio, sample_rate = tts.synthesize(_clean(text), voice_style=style, lang="en", speed=SPEED)
-        duration = float(np.squeeze(sample_rate))  # supertonic returns duration, not sample rate
-        audio = mod_echo(audio, duration * PLAYBACK_RATE)
-        audio_mono = audio.squeeze()
-        actual_sr = int(audio_mono.shape[-1] / duration)
-        if PLAYBACK_RATE != 1.0:
-            audio_mono = librosa.effects.time_stretch(audio_mono, rate=PLAYBACK_RATE)
-        sd.stop()
-        sd.play(audio_mono, samplerate=actual_sr)
-        sd.wait()
+        print(f"[speech] {clean_text}")
+        audio, sample_rate = kokoro.create(_clean(text), voice=VOICE, speed=SPEED, lang="en-us")
+        audio = mod_echo(audio, sample_rate)
+        _play_raylib(audio, sample_rate)
     except Exception as e:
-        print(f"[speech] {e}")
+        print(f"[speech] ERROR: {e}")
 
 
 if __name__ == "__main__":
     import sys
+    import raylib as rl
 
-    KNOWN_VOICES = ["M1", "M2", "M3", "M4", "M5", "F1", "F2", "F3", "F4", "F5"]
-    sample_text = "Hello! This is a test of the text-to-speech system."
+    # fmt: off
+    # American voices: af_heart, af_bella, af_nicole, af_sarah, af_sky
+    #                  am_adam, am_michael
+    # British voices:  bf_emma, bf_isabella, bm_george, bm_lewis
+    KNOWN_VOICES = [
+        "af_heart", "af_bella", "af_nicole", "af_sarah", "af_sky",
+        "am_adam", "am_michael",
+        "bf_emma", "bf_isabella", "bm_george", "bm_lewis",
+    ]
+    # fmt: on
 
-    from supertonic import TTS
-    tts = TTS(auto_download=True)
+    #sample_text = "Hello! This is a test of the text-to-speech system. This image is 1024 by 768 pixels."
+    #sample_text = "Hello! 👋  Tell me what you’d like to do with your image(s)—e.g., crop/resize, remove background, pixelate, or edit something specific."
+    sample_text = "Updated `alpha_channel.png` to be a **grayscale rendering of `bear_trouble.png`’s alpha** and made `alpha_channel.png` **fully opaque**."
 
     if len(sys.argv) > 1:
         voices_to_test = sys.argv[1:]
     else:
         print("Known voices:", ", ".join(KNOWN_VOICES))
-        choice = input("Voice to test (default F5, or 'all'): ").strip() or "F5"
+        choice = input("Voice to test (default bf_emma, or 'all'): ").strip() or "bf_emma"
         voices_to_test = KNOWN_VOICES if choice == "all" else [choice]
 
     sample_text = input("Speech (press return for default): ") or sample_text
-    speed = float(input(f"Synth speed 0.7–2.0 (default {SPEED}): ") or SPEED)
-    rate = float(input(f"Playback rate (default {PLAYBACK_RATE}): ") or PLAYBACK_RATE)
+    speed = float(input(f"Synth speed (default {SPEED}): ") or SPEED)
     effect = input("Effect: ring / echo / none (default echo): ").strip() or "echo"
 
-    for v in voices_to_test:
-        print(f"Testing voice {v}...")
-        style = tts.get_voice_style(voice_name=v)
-        audio, sample_rate = tts.synthesize(sample_text, voice_style=style, lang="en", speed=speed)
-        duration = float(np.squeeze(sample_rate))
-        if effect == "ring":
-            audio = mod_ring(audio, duration)
-        elif effect == "echo":
-            audio = mod_echo(audio, duration)
-        audio_mono = audio.squeeze()
-        dur = float(np.squeeze(sample_rate))
-        actual_sr = int(audio_mono.shape[-1] / dur)
-        if rate != 1.0:
-            audio_mono = librosa.effects.time_stretch(audio_mono, rate=rate)
-        sd.play(audio_mono, samplerate=actual_sr)
-        sd.wait()
+    rl.InitWindow(400, 120, b"Speech Test")
+    rl.InitAudioDevice()
+    rl.SetTargetFPS(60)
 
+    _get_engine()  # pre-load model before first voice test
+
+    for v in voices_to_test:
+        if rl.WindowShouldClose():
+            break
+        print(f"Testing voice {v}...")
+        # Drive _speak_worker directly so cleaning, echo, and playback path are identical to the app.
+        VOICE = v
+        SPEED = speed
+        t = threading.Thread(target=_speak_worker, args=(sample_text,))
+        t.start()
+        label = f"Playing: {v}".encode()
+        while t.is_alive() and not rl.WindowShouldClose():
+            rl.BeginDrawing()
+            rl.ClearBackground((30, 30, 30, 255))
+            rl.DrawText(label, 20, 45, 20, (200, 200, 200, 255))
+            rl.EndDrawing()
+        t.join()
+
+    rl.CloseAudioDevice()
+    rl.CloseWindow()
     print("Done.")

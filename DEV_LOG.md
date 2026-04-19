@@ -71,5 +71,11 @@ I started playing around with TTS just a bit, using [supertonic](https://superto
 On the bright side, I've long wanted a chance to try adding some sort of audio modulation to synthesized voices so we can hear when a speaker is AI.  I experimented with both a ring modulation, and a very short echo.  The ring mod produces very much "Star Wars Droid" voices; kind of fun, but also a bit jarring and probably harder to understand, especially in a noisy environment.  However the echo sounds good -- it's pleasant and very intelligible, but still easily recognizable.  The only concern there is that room reverberation might mimic the effect, but I think that would be pretty rare.  I should probably write this up as its own GitHub project or blog post (or both) and try to promote it as a standard.
 
 
+## Apr 19 2026
+
+I'm giving up on Supertonic and switching to Kokoro (https://huggingface.co/spaces/hexgrad/Kokoro-TTS), a very well-known open-weight (Apache 2 license) TTS model with 54 voices to choose from.  It's only 80M parameters too.  And a quick test with the online demo shows it has no trouble reading numbers.
+
+
+
 
 
