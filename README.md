@@ -11,6 +11,8 @@ This project aims to be a sophisticated AI agent specialized for manipulating im
 
 ![PixelClaw screen shot](screenshots/alphabear.png)
 
+Video demo:
+
 [![PixelClaw Demo Video 1](https://img.youtube.com/vi/QVFHe-kePMc/0.jpg)](https://www.youtube.com/watch?v=QVFHe-kePMc)
 
 See the [screenshots](screenshots/) folder for more screen shots.  (Just keep in mind that the app is developing rapidly, so these grow out of date pretty quickly.)
