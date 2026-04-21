@@ -19,7 +19,7 @@ See the [screenshots](screenshots/) folder for more screen shots.  (Just keep in
 
 ## Installation
 
-> **Platform note:** PixelClaw currently runs on macOS only. Windows and Linux support is planned.
+> **Platform note:** PixelClaw is cross-platform, currently tested on macOS and Ubuntu Linux. Windows should work as well.
 
 **Prerequisites:** [Micromamba](https://mamba.readthedocs.io/en/latest/installation/micromamba-installation.html) (or Conda/Mamba).
 
