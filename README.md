@@ -7,6 +7,9 @@ This project aims to be a sophisticated AI agent specialized for manipulating im
 - Remove/add backgrounds
 - Filter, color-correct, enhance
 - Convert from one format to another
+- Posterize or pixelate images
+- Defringe (eliminate stray colors around the edge of a transparent image)
+- Do arbitrary pixel operations we haven't even thought of
 - Even generate new images, just by describing what you want
 
 ![PixelClaw screen shot](screenshots/alphabear.png)
@@ -19,7 +22,7 @@ See the [screenshots](screenshots/) folder for more screen shots.  (Just keep in
 
 ## Installation
 
-> **Platform note:** PixelClaw is cross-platform, currently tested on macOS and Ubuntu Linux. Windows should work as well.
+**Platform note:** PixelClaw is cross-platform, currently tested on macOS and Ubuntu Linux. Windows should work as well.
 
 **Prerequisites:** [Micromamba](https://mamba.readthedocs.io/en/latest/installation/micromamba-installation.html) (or Conda/Mamba).
 
@@ -39,7 +42,7 @@ On first launch you will be prompted for your OpenAI API key (see below), and so
 
 ## API Key Required
 
-Image generation and editing rely on network access to GPT-image-1; the agent LLM is currently using gpt-5.4-nano.  Both require an OpenAI API key.  This must be stored in either a file called `api_key.secret` at the project root, or an environment variable called `OPENAI_API_KEY`.
+Image generation and editing rely on network access to GPT-image-1; by default the agent LLM uses gpt-5.4-mini.  Both require an OpenAI API key.  This must be stored in either a file called `api_key.secret` at the project root, or an environment variable called `OPENAI_API_KEY`.
 
 ## Runtime Downloads
 
