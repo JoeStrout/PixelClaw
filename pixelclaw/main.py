@@ -22,11 +22,11 @@ from . import textures
 from .ml_deps import ensure_packages
 from agentcore.speech import speak, preload as preload_speech
 from agentcore.stt import preload as preload_stt
-from .tools import (ApplyTool, CloseDocsTool, CropTool, EditImageTool, GenerateImageTool,
+from .tools import (ApplyTool, CloseDocsTool, CropTool, DefringeTool, EditImageTool, GenerateImageTool,
                     InspectTool, MultiApplyTool, NewFromRegionTool, NewImageTool, PadTool,
                     PixelateTool, PosterizeTool, QueryTool, RemoveBackgroundTool, RenameDocumentTool,
                     RevertTool, RotateTool, SaveDocumentTool, ScaleTool, SeparateLayersTool,
-                    SetActiveTool, SoftThresholdTool, TrimTool, UndoTool, VersionHistoryTool)
+                    SetActiveTool, SetBgColorTool, SoftThresholdTool, TrimTool, UndoTool, VersionHistoryTool)
 from .file_dialogs import open_images, save_image
 from .headerpanel import _alt_is_held
 from .workspace import ImageWorkspace
@@ -52,12 +52,12 @@ class PixelClawApp(App):
 
     def create_tools(self) -> list[Tool]:
         return [
-            ApplyTool(), CloseDocsTool(), CropTool(),
+            ApplyTool(), CloseDocsTool(), CropTool(), DefringeTool(),
             EditImageTool(self._openai_key), GenerateImageTool(self._openai_key),
             InspectTool(), MultiApplyTool(), NewFromRegionTool(), NewImageTool(), PadTool(),
             PixelateTool(), PosterizeTool(), QueryTool(), RemoveBackgroundTool(),
             RenameDocumentTool(), RevertTool(), RotateTool(), SaveDocumentTool(),
-            ScaleTool(), SeparateLayersTool(), SetActiveTool(), SoftThresholdTool(),
+            ScaleTool(), SeparateLayersTool(), SetActiveTool(), SetBgColorTool(), SoftThresholdTool(),
             TrimTool(), UndoTool(), VersionHistoryTool(),
         ]
 
@@ -101,6 +101,40 @@ class PixelClawApp(App):
 
     def _handle_message(self, text: str) -> None:
         self.chat.add_entry(text, "user")
+
+        # Slash commands handled locally — no LLM call.
+        stripped = text.strip()
+        if stripped.startswith("/model"):
+            parts = stripped.split(None, 1)
+            if len(parts) == 1:
+                self._reply_queue.put(f"Current model: {self.agent.model}", "agent")
+            else:
+                new_model = _expand_model(parts[1].strip())
+                prev_model = self.agent.model
+                self.agent.model = new_model
+                self.chat.thinking = True
+                self.chat._thinking_start = rl.GetTime()
+                self.chat._thinking_shown = False
+
+                def _validate() -> None:
+                    import litellm
+                    try:
+                        litellm.completion(
+                            model=new_model,
+                            messages=[{"role": "user", "content": "hi"}],
+                            max_tokens=1,
+                            api_key=self.agent.api_key,
+                        )
+                        self._reply_queue.put(f"Model set to: {new_model}")
+                    except Exception as e:
+                        self.agent.model = prev_model
+                        self._reply_queue.put(
+                            f"Invalid model '{new_model}'\nReverted to: {prev_model}"
+                        )
+
+                threading.Thread(target=_validate, daemon=True).start()
+            return
+
         self.chat.thinking = True
         self.chat._thinking_start = rl.GetTime()
         self.chat._thinking_shown = False
@@ -229,6 +263,16 @@ class PixelClawApp(App):
         pass
 
 
+def _expand_model(name: str) -> str:
+    if name.startswith(("opus", "sonnet", "haiku")):
+        return "anthropic/claude-" + name
+    if name.startswith("claude-"):
+        return "anthropic/" + name
+    if name.startswith("gemini-"):
+        return "gemini/" + name
+    return name
+
+
 def _find_key_for_char(char: str) -> int:
     """Return the Raylib key code that produces *char* in the current keyboard layout.
 
@@ -257,15 +301,27 @@ def _save_pil(image: np.ndarray, path: Path) -> None:
 
 
 def main() -> None:
-    ensure_packages()
+    import configargparse
+    from agentcore.agent import DEFAULT_MODEL
+
     root = Path(__file__).parent.parent
+    parser = configargparse.ArgumentParser(
+        description="PixelClaw image editor",
+        default_config_files=[str(root / "pixelclaw.cfg")],
+    )
+    parser.add_argument("--model", default=DEFAULT_MODEL, help="LLM model to use")
+    args = parser.parse_args()
+
+    ensure_packages()
+
     api_key_file = root / "api_key.secret"
     api_key = (api_key_file.read_text().strip() if api_key_file.exists()
                else os.environ.get("OPENAI_API_KEY"))
     openai_key_file = root / "openai_key.secret"
     openai_key = (openai_key_file.read_text().strip() if openai_key_file.exists()
                   else os.environ.get("OPENAI_API_KEY") or api_key)
-    PixelClawApp(title="PixelClaw", api_key=api_key, openai_key=openai_key).run()
+
+    PixelClawApp(title="PixelClaw", api_key=api_key, openai_key=openai_key, model=args.model).run()
 
 
 if __name__ == "__main__":

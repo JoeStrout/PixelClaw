@@ -81,7 +81,16 @@ Then, added STT using the WhisperFast library.  Rather than a wake word, I'm pro
 
 At some point I'll need to add a Settings UI, and we'll need options for all this stuff.
 
+## Apr 21 2026
 
+I've added some cool new functionality: a "set background" tool that lets you preview your transparent image against any color, or the standard checkerboard; and a "defringe" tool that can help with those anti-aliasing pixels that have held on to some surrounding backgroudn color.
 
+But when I tried this on my Wumpus image -- which has long suffered from fringe pixels -- it turns out, that wasn't the problem.  Most of those fringe pixels were actually completely solid.  So I talked PixelClaw through thresholding and eroding the alpha channel, then adding a blurred version of that alpha to itself.  This reduced the black outline but also made it smooth; it looks much better than it did before.  And it's something I've been unable to do with my other tools in the 6 years that Mini Micro has been out!
+
+I also added my first meta-command: `/model` can be used to see or change the current LLM model, just like in Claude Code.  And added a .cfg file to let you set the initial model.
+
+Finally, added a log module that logs clean transcripts of the conversation and tool use.  Not as complete as what goes into debug_output, but far more compact and readable.
+
+Next up: I'm going to try to make this work on Ubuntu.
 
 

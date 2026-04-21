@@ -121,6 +121,7 @@ def preload() -> None:
 
 def speak(text: str) -> None:
     """Speak text asynchronously; returns immediately."""
+    _stop_evt.set()
     threading.Thread(target=_speak_worker, args=(text,), daemon=True).start()
 
 

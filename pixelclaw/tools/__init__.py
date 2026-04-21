@@ -3,6 +3,7 @@ from .rename_document import RenameDocumentTool
 from .save_document import SaveDocumentTool
 from .close_docs import CloseDocsTool
 from .crop import CropTool
+from .defringe import DefringeTool
 from .edit_image import EditImageTool
 from .generate_image import GenerateImageTool
 from .history import VersionHistoryTool
@@ -22,14 +23,15 @@ from .trim import TrimTool
 from .undo import UndoTool
 from .scale import ScaleTool
 from .set_active import SetActiveTool
+from .set_bg_color import SetBgColorTool
 from .soft_threshold import SoftThresholdTool
 
 __all__ = [
-    "ApplyTool", "CloseDocsTool", "CropTool", "EditImageTool",
+    "ApplyTool", "CloseDocsTool", "CropTool", "DefringeTool", "EditImageTool",
     "RenameDocumentTool", "SaveDocumentTool",
     "GenerateImageTool", "InspectTool", "MultiApplyTool",
     "NewFromRegionTool", "NewImageTool", "PadTool", "PixelateTool", "PosterizeTool",
     "QueryTool", "RemoveBackgroundTool", "RevertTool",
-    "RotateTool", "ScaleTool", "SeparateLayersTool", "SetActiveTool", "SoftThresholdTool",
+    "RotateTool", "ScaleTool", "SeparateLayersTool", "SetActiveTool", "SetBgColorTool", "SoftThresholdTool",
     "TrimTool", "UndoTool", "VersionHistoryTool",
 ]

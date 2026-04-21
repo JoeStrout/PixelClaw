@@ -7,6 +7,7 @@ litellm.suppress_debug_info = True
 
 from .context import Context
 from .tool import Tool
+from . import log
 
 DEFAULT_MODEL = "gpt-5.4-nano"
 MAX_HISTORY_MESSAGES = 40
@@ -89,6 +90,7 @@ class Agent:
 
     def chat(self, user_message: str) -> str:
         """Send a user message, run the agentic loop (with tool calls), return final text."""
+        log.userMsg(user_message)
         self.context.chat_history.append({"role": "user", "content": user_message})
         tool_defs = [t.to_api_dict() for t in self.tools.values()]
 
@@ -132,6 +134,7 @@ class Agent:
 
             if msg.content:
                 print(f"[agent] {msg.content}")
+                log.agentMsg(msg.content)
 
             if finish == "stop" or not msg.tool_calls:
                 return msg.content or ""
@@ -149,6 +152,8 @@ class Agent:
                         raise ValueError(f"unknown tool '{tc.function.name}'")
                 except Exception as e:
                     result = f"Error: {e}"
+                    log.error(str(e))
+                log.toolUse(tc.function.name, tc.function.arguments, str(result))
                 tool_results.append({
                     "role": "tool",
                     "tool_call_id": tc.id,

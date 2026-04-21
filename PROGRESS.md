@@ -325,3 +325,44 @@ Bootstrapped the project from scratch.
 - `faster-whisper` (pip) — Whisper inference via CTranslate2.
 - `sounddevice` (pip) — cross-platform microphone capture via PortAudio.
 
+---
+
+## Apr 21 2026
+
+**Compact transcript logger** (`agentcore/log.py`)
+- New module that writes a Markdown log file for each session to `logs/YYYY-MM-DD_HH-MM-SS.md`.
+- Four functions: `userMsg(text)`, `agentMsg(text)`, `toolUse(name, args, result)`, `error(text)`.
+- File created lazily on first write; `logs/` directory created automatically.
+- Hooked into `Agent.chat()`: `userMsg` on input, `agentMsg` on any assistant text content, `toolUse` after each tool call, `error` on tool exceptions.
+
+**Adjustable display background** (`pixelclaw/workspace.py`, `pixelclaw/mainpanel.py`, `pixelclaw/tools/set_bg_color.py`)
+- `ImageWorkspace` gains a `display_bg: str` field (default `"checkerboard"`).
+- `MainPanel.draw()` branches on `display_bg`: checkerboard pattern as before, or a solid `DrawRectangle` fill using PIL's `ImageColor.getrgb()` to parse any HTML color string.
+- New `set_background` LLM tool accepts `"checkerboard"` or any HTML color (e.g. `"red"`, `"#FF0000"`, `"rgb(0,128,255)"`); validates via PIL before accepting.
+- `render_context()` reports the current display background so the agent is aware of it.
+- Agent instructions updated: `set_background` is explicitly marked as a **view-only** setting (does not modify pixels); a rule distinguishes display background from image background (`apply`/`pad`/`edit_image` for the latter).
+
+**`defringe` tool** (`pixelclaw/tools/defringe.py`)
+- Removes background-color contamination from semi-transparent edge pixels left by `remove_background`.
+- Algorithm: `distance_transform_edt` finds each fringe pixel's nearest fully-opaque neighbor; copies that neighbor's RGB while leaving alpha intact; a `radius` parameter limits the fix to true edge pixels.
+- Parameters: `threshold` (alpha value defining "opaque", default 230) and `radius` (max distance in px, default 3.0).
+- Agent instructions updated to recommend `defringe` proactively after `remove_background` when halos are visible.
+
+**Agent instruction improvements**
+- New rule: when asked to "try again" or "try it again" (with different settings), always call `undo` first before retrying — never stack operations.
+
+**Configurable LLM model**
+- `/model` slash command: handled in `_handle_message` before the agent thread. `/model` alone reports the current model; `/model <name>` validates the new model by making a 1-token test completion (background thread, shows thinking indicator), confirms on success, or reverts with an error on failure.
+- Model name expansion: `_expand_model()` prepends provider prefixes automatically — `opus`/`sonnet`/`haiku` → `anthropic/claude-`, `claude-` → `anthropic/`, `gemini-` → `gemini/`.
+- Initial model configurable via `pixelclaw.cfg` (INI-format, powered by `configargparse`) or `--model` CLI flag; CLI overrides config file overrides `DEFAULT_MODEL`. `pixelclaw.cfg` created with a curated comment block listing common model strings for OpenAI, Anthropic, Google, and Groq.
+- `configargparse` added to `environment.yml`.
+
+**InputField: key auto-repeat fix** (`agentcore/app.py`, `agentcore/inputfield.py`)
+- `GetKeyPressed()` is a one-shot event queue and never repeats; the existing `IsKeyPressedRepeat` calls inside `on_key_press` were dead code.
+- Fix: `App._process_input` now polls `IsKeyPressedRepeat` each frame for a `_REPEAT_KEYS` set (Backspace, Delete, Left, Right, Up, Down, Home, End) and dispatches them through the panel tree. `GetKeyPressed()` handles the initial press for all keys; `IsKeyPressedRepeat` handles OS repeat events only — the two are disjoint.
+- Dead `IsKeyPressedRepeat` calls removed from `InputField.on_key_press`.
+
+**InputField: cursor blink reset on movement** (`agentcore/inputfield.py`)
+- Cursor now becomes immediately visible whenever it moves, and only starts blinking after being idle for `_BLINK_RATE` seconds.
+- Implemented via `_blink_reset_time` (set in `_clamp_scroll()`, `on_mouse_press()`, and `on_mouse_move()`); draw uses `idle = GetTime() - _blink_reset_time` instead of raw `GetTime()`.
+

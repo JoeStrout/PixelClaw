@@ -80,6 +80,7 @@ class InputField(Panel):
 
         self._scroll_x = 0.0
         self._dragging = False
+        self._blink_reset_time: float = 0.0
 
     # ------------------------------------------------------------------
     # Selection helpers
@@ -155,6 +156,7 @@ class InputField(Panel):
         if cx - self._scroll_x < 0:
             self._scroll_x = cx
         self._scroll_x = max(0.0, self._scroll_x)
+        self._blink_reset_time = rl.GetTime()
 
     # ------------------------------------------------------------------
     # Drawing
@@ -210,7 +212,8 @@ class InputField(Panel):
             font.draw(self.text, text_origin, text_y, self.font_size, _COLOR_TEXT)
 
             # Blinking cursor — only when focused, window active, and no active selection
-            if focused and win_focused and not sel and int(rl.GetTime() / _BLINK_RATE) % 2 == 0:
+            idle = rl.GetTime() - self._blink_reset_time
+            if focused and win_focused and not sel and int(idle / _BLINK_RATE) % 2 == 0:
                 cx = int(text_origin + self._char_x(self.cursor_pos))
                 rl.DrawRectangle(cx, int(text_y), _CURSOR_W, int(self.font_size), _COLOR_CURSOR)
 
@@ -230,6 +233,7 @@ class InputField(Panel):
             self.selection_anchor = None
         self.cursor_pos = pos
         self._dragging  = True
+        self._blink_reset_time = rl.GetTime()
         return True
 
     def on_mouse_move(self, x: float, y: float) -> None:
@@ -239,6 +243,7 @@ class InputField(Panel):
                 if self.selection_anchor is None:
                     self.selection_anchor = self.cursor_pos
                 self.cursor_pos = new_pos
+                self._blink_reset_time = rl.GetTime()
 
     def on_mouse_release(self, x: float, y: float, button: int) -> None:
         if button == rl.MOUSE_BUTTON_LEFT:
@@ -334,7 +339,7 @@ class InputField(Panel):
             return True
 
         # --- Deletion (auto-repeat via IsKeyPressedRepeat) ---
-        if rl.IsKeyPressedRepeat(rl.KEY_BACKSPACE) or key == rl.KEY_BACKSPACE:
+        if key == rl.KEY_BACKSPACE:
             if not self._delete_selection():
                 if _alt() and self.cursor_pos > 0:
                     target = self._word_left(self.cursor_pos)
@@ -346,7 +351,7 @@ class InputField(Panel):
             self._clamp_scroll()
             return True
 
-        if rl.IsKeyPressedRepeat(rl.KEY_DELETE) or key == rl.KEY_DELETE:
+        if key == rl.KEY_DELETE:
             if not self._delete_selection():
                 if _alt() and self.cursor_pos < len(self.text):
                     target = self._word_right(self.cursor_pos)

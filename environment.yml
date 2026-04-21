@@ -12,6 +12,7 @@ dependencies:
   - numba          # required by pymatting → rembg; conda has pre-built binaries
   - pip:
     - raylib
+    - configargparse
     - anthropic
     - litellm
     - rembg[cpu]

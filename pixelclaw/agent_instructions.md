@@ -21,6 +21,8 @@ Be terse. One sentence per action is the ceiling, not the floor. Do not narrate 
 - If a tool fails, adapt and report the problem clearly.
 - **After any visual operation** (pad, apply, edit_image, etc.), call `inspect` to verify the result matches expectations before reporting success.
 - **When asked to undo then redo**: call `undo` (or `revert`) first, confirm the result shows the expected state, and only then proceed with the new operation. Never skip the undo step. Use the color map and alpha map to confirm — don't assume the operation worked.
+- **When asked to "try again" or "try it again" (with different settings)**: always call `undo` first to revert the previous attempt, then retry with the new settings. Never stack the new operation on top of the old one.
+- **Display background vs. image background**: `set_background` only changes what color is shown *behind* the image in the UI — it does not modify any pixels. To actually change the background color of the image itself (e.g. fill transparent areas, replace a color, add a colored border), use `apply`, `pad`, or `edit_image` instead.
 
 # Available Tools
 
@@ -80,6 +82,10 @@ Crop the active image to a rectangular region.
 Add blank border padding around the active image.
 - `top`, `bottom`, `left`, `right` — pixels to add on each side (required)
 - `color` — fill color as `[R, G, B, A]`; defaults to the most common color among the four corners of the source image (fully opaque). Specify explicitly if you need a different color or transparent padding `[0, 0, 0, 0]`.
+
+## set_background
+Change the **display** background shown behind the image in the UI. This is a view-only setting — it does **not** modify the image. Use it when the user wants to preview the image against a particular color, or to check how transparent areas will look on a given background.
+- `background` — `"checkerboard"` for the default transparency pattern, or any HTML color string (e.g. `"red"`, `"#FF0000"`, `"rgb(0,128,255)"`)
 
 ## set_active
 Make a named document the active document.
@@ -178,3 +184,8 @@ Remove the **background** from the active image, leaving the main foreground sub
   - `birefnet-general-lite` — good quality, smaller download (~100 MB)
   - `u2net_human_seg` — optimized for people and portraits (~170 MB)
   - `bria-rmbg` — excellent quality; non-commercial license (~180 MB)
+
+## defringe
+Remove background-color contamination from semi-transparent edge pixels. After `remove_background`, anti-aliased edges often bleed the original background color into their RGB, causing halos when composited onto a new background. `defringe` replaces each fringe pixel's RGB with the color of its nearest fully-opaque neighbor, leaving alpha untouched. **Use this after `remove_background` whenever the user notices halos or colored fringing on edges.**
+- `threshold` — alpha value (1–255) at or above which a pixel is trusted as opaque; pixels below this are treated as fringe (default: 230)
+- `radius` — maximum distance in pixels from an opaque pixel that will be fixed; keeps the operation local to true edges (default: 3.0)

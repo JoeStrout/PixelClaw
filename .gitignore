@@ -213,4 +213,5 @@ __marimo__/
 .claude
 *.secret
 debug_output/
+logs/
 

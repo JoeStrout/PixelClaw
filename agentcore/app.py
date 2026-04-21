@@ -84,6 +84,13 @@ class App(ABC):
             resources.unload_all()
             rl.CloseWindow()
 
+    # Keys that should auto-repeat when held.
+    _REPEAT_KEYS = (
+        rl.KEY_BACKSPACE, rl.KEY_DELETE,
+        rl.KEY_LEFT, rl.KEY_RIGHT, rl.KEY_UP, rl.KEY_DOWN,
+        rl.KEY_HOME, rl.KEY_END,
+    )
+
     def _process_input(self) -> None:
         """Read Raylib input each frame and route to the panel tree."""
         mx = float(rl.GetMouseX())
@@ -106,6 +113,10 @@ class App(ABC):
         while key != 0:
             self.root.handle_key_press(key)
             key = rl.GetKeyPressed()
+
+        for rkey in self._REPEAT_KEYS:
+            if rl.IsKeyPressedRepeat(rkey):
+                self.root.handle_key_press(rkey)
 
         char = rl.GetCharPressed()
         while char != 0:

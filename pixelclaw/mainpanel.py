@@ -94,13 +94,23 @@ class MainPanel(Panel):
         draw_x = self.abs_x + (self.width  - draw_w) / 2
         draw_y = self.abs_y + _MARGIN + (avail_h - draw_h) / 2
 
-        # Tiled checkerboard behind the image
-        self._ensure_bg()
-        if self._bg_tex.id != 0:
-            bg_src  = rl.ffi.new("Rectangle *", [0.0, 0.0, draw_w, draw_h])
-            bg_dest = rl.ffi.new("Rectangle *", [draw_x, draw_y, draw_w, draw_h])
-            origin  = rl.ffi.new("Vector2 *",   [0.0, 0.0])
-            rl.DrawTexturePro(self._bg_tex, bg_src[0], bg_dest[0], origin[0], 0.0, rl.WHITE)
+        # Background behind the image: checkerboard or solid color
+        bg = getattr(self._context, "display_bg", "checkerboard")
+        if bg == "checkerboard":
+            self._ensure_bg()
+            if self._bg_tex.id != 0:
+                bg_src  = rl.ffi.new("Rectangle *", [0.0, 0.0, draw_w, draw_h])
+                bg_dest = rl.ffi.new("Rectangle *", [draw_x, draw_y, draw_w, draw_h])
+                origin  = rl.ffi.new("Vector2 *",   [0.0, 0.0])
+                rl.DrawTexturePro(self._bg_tex, bg_src[0], bg_dest[0], origin[0], 0.0, rl.WHITE)
+        else:
+            from PIL.ImageColor import getrgb as _getrgb
+            try:
+                rgb = _getrgb(bg)
+                color = (rgb[0], rgb[1], rgb[2], rgb[3] if len(rgb) > 3 else 255)
+            except (ValueError, KeyError):
+                color = (0, 0, 0, 255)
+            rl.DrawRectangle(int(draw_x), int(draw_y), int(draw_w), int(draw_h), color)
 
         src  = rl.ffi.new("Rectangle *", [0.0, 0.0, float(tex.width), float(tex.height)])
         dest = rl.ffi.new("Rectangle *", [draw_x, draw_y, draw_w, draw_h])

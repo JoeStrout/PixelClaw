@@ -10,6 +10,8 @@ class ImageWorkspace(Context[ImageDocument]):
         self.selection: tuple[int, int, int, int] | None = None
         # Image-space mouse position while hovering over the main panel, or None
         self.mouse_image_pos: tuple[int, int] | None = None
+        # Display background: "checkerboard" or an HTML color string e.g. "#FF0000"
+        self.display_bg: str = "checkerboard"
 
     def render_context(self) -> str:
         lines = ["## Current Context\n"]
@@ -45,5 +47,7 @@ class ImageWorkspace(Context[ImageDocument]):
         if self.mouse_image_pos:
             mx, my = self.mouse_image_pos
             lines.append(f"\n**User is pointing at:** ({mx}, {my})")
+
+        lines.append(f"\n**Display background:** {self.display_bg}")
 
         return "\n".join(lines)
