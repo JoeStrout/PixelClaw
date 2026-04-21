@@ -1,6 +1,8 @@
 # PixelClaw
 _LLM-based agent for in-depth photo/image manipulation_
 
+![PixelClaw screen shot](screenshots/alphabear.png)
+
 This project aims to be a sophisticated AI agent specialized for manipulating image files.  The sorts of tasks you might normally need PhotoShop (and specialized skill/knowledge) to do, PixelClaw can do for you:
 
 - Rescale, pad, and crop
@@ -12,13 +14,14 @@ This project aims to be a sophisticated AI agent specialized for manipulating im
 - Do arbitrary pixel operations we haven't even thought of
 - Even generate new images, just by describing what you want
 
-![PixelClaw screen shot](screenshots/alphabear.png)
 
-Video demo:
+## Demo Videos
 
 [![PixelClaw Demo Video 1](https://img.youtube.com/vi/QVFHe-kePMc/0.jpg)](https://www.youtube.com/watch?v=QVFHe-kePMc)
 
-See the [screenshots](screenshots/) folder for more screen shots.  (Just keep in mind that the app is developing rapidly, so these grow out of date pretty quickly.)
+[![PixelClaw Demo Video 2](https://img.youtube.com/vi/yZcb5DsSWts/0.jpg)](https://www.youtube.com/watch?v=yZcb5DsSWts)
+
+See also the [screenshots](screenshots/) folder for more screen shots.  (Just keep in mind that the app is developing rapidly, so these grow out of date pretty quickly.)
 
 ## Installation
 
