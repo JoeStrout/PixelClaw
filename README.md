@@ -23,6 +23,18 @@ This project aims to be a sophisticated AI agent specialized for manipulating im
 
 See also the [screenshots](screenshots/) folder for more screen shots.  (Just keep in mind that the app is developing rapidly, so these grow out of date pretty quickly.)
 
+## Technologies Used
+
+PixelClaw combines:
+
+- an LLM for conversation, planning, and tool use (supports a variety of LLMs)
+- image generation/AI-based editing via gpt-image
+- background removal via [rembg](https://github.com/danielgatis/rembg) (several specialized models available)
+- pixelization using [pyxelate](https://github.com/sedthh/pyxelate)
+- posterization and defringing using custom algorithms
+- speech-to-text ([Whisper](https://github.com/SYSTRAN/faster-whisper)) and text-to-speech ([Kokoro](https://github.com/hexgrad/kokoro) plus [HALO](https://github.com/JoeStrout/HALO))
+- a nice UI based on [Raylib](https://www.raylib.com/), including file drag-and-drop
+
 ## Installation
 
 **Platform note:** PixelClaw is cross-platform, currently tested on macOS and Ubuntu Linux. Windows should work as well.
