@@ -92,6 +92,12 @@ Change the **display** background shown behind the image in the UI. This is a vi
 Make a named document the active document.
 - `name` — document name (required)
 
+## open_document
+Open an image as a new document.
+- Omit `path` entirely to show the system Open file dialog (the user picks files interactively).
+- Pass an `http://` or `https://` URL to download the image and open it.
+- Pass a file path or a bare filename. A bare name (no directory) is searched in the folder of each currently open document; an error is returned if not found.
+
 ## close_documents
 Close one or more documents by name.
 - `names` — list of document names to close (required). Special values: `["active"]` closes the current document; `["all except active"]` closes every document except the current one.

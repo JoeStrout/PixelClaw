@@ -114,6 +114,7 @@ I find this new fill function is so good that at least on clean line art, it's o
 
 Upon more testing, I had to handle some additional cases.  We ended up with a set of heuristics, a decision tree as follows:
 
+---
 Light seed (bright pixel):                                                                                  
 1. Compute the ink-bounded fill (connected region not blocked by dark pixels).
 2. Also compute a tolerance=128 fill (same, but candidates must be within L∞ 128 of the seed color).        
@@ -131,4 +132,11 @@ Color blending (mode="color"):
 - Dark seed: screen blend — result_L = 1 − (1−orig_L)(1−fill_L) (black → exact fill color)                  
 																						
 Alpha mode: lightness-weighted alpha ramp instead of color blend; same light/dark distinction applies.      
+---
+
+So, that's working pretty well now.
+
+On clipboard support in the text field: this was already implemented, but appeared broken for me because it was searching for Raylib hardware keys instead of proper layout-aware keys.  We dealt with the same issue before in pixelcore.main, and had some code there to do the proper key mapping.  I've moved that to agentcore.key_utils, and fixed inputfield to use it, so that works now.
+
+Gave the agent an "open" tool which can take a file name/path or URL (or no argument, which then posts the standard Open dialog).
 

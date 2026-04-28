@@ -4,6 +4,7 @@ from typing import Callable
 
 import raylib as rl
 
+from .key_utils import find_key_for_char
 from .panel import Panel
 from .resources import default_font
 
@@ -81,6 +82,11 @@ class InputField(Panel):
         self._scroll_x = 0.0
         self._dragging = False
         self._blink_reset_time: float = 0.0
+
+        self._key_a = find_key_for_char('a')
+        self._key_c = find_key_for_char('c')
+        self._key_x = find_key_for_char('x')
+        self._key_v = find_key_for_char('v')
 
     # ------------------------------------------------------------------
     # Selection helpers
@@ -262,22 +268,22 @@ class InputField(Panel):
 
         # --- Ctrl/Cmd shortcuts (not shared with word movement) ---
         if (ctrl or _super()) and not _alt():
-            if key == rl.KEY_A:
+            if key == self._key_a:
                 self.selection_anchor = 0
                 self.cursor_pos = len(self.text)
                 return True
-            if key == rl.KEY_C:
+            if key == self._key_c:
                 t = self._selected_text()
                 if t:
                     rl.SetClipboardText(t.encode())
                 return True
-            if key == rl.KEY_X:
+            if key == self._key_x:
                 t = self._selected_text()
                 if t:
                     rl.SetClipboardText(t.encode())
                     self._delete_selection()
                 return True
-            if key == rl.KEY_V:
+            if key == self._key_v:
                 raw  = rl.GetClipboardText()
                 clip = rl.ffi.string(raw).decode() if raw else ""
                 if clip:

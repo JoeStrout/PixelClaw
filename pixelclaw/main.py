@@ -11,6 +11,7 @@ from PIL import Image
 from agentcore.app import App
 from agentcore.chatpanel import ChatPanel
 from agentcore.context import Context
+from agentcore.key_utils import find_key_for_char as _find_key_for_char
 from agentcore.tool import Tool
 
 from .document import ImageDocument
@@ -24,10 +25,10 @@ from agentcore.speech import speak, preload as preload_speech
 from agentcore.stt import preload as preload_stt
 from .tools import (ApplyTool, CloseDocsTool, CropTool, DefringeTool, EditImageTool, FillTool,
                     GenerateImageTool, InspectTool, MultiApplyTool, NewFromRegionTool, NewImageTool,
-                    PadTool, PixelateTool, PosterizeTool, QueryTool, RemoveBackgroundTool,
-                    RenameDocumentTool, RevertTool, RotateTool, SaveDocumentTool, ScaleTool,
-                    SeparateLayersTool, SetActiveTool, SetBgColorTool, SoftThresholdTool, TrimTool,
-                    UndoTool, VersionHistoryTool)
+                    OpenDocumentTool, PadTool, PixelateTool, PosterizeTool, QueryTool,
+                    RemoveBackgroundTool, RenameDocumentTool, RevertTool, RotateTool,
+                    SaveDocumentTool, ScaleTool, SeparateLayersTool, SetActiveTool, SetBgColorTool,
+                    SoftThresholdTool, TrimTool, UndoTool, VersionHistoryTool)
 from .file_dialogs import open_images, save_image
 from .headerpanel import _alt_is_held
 from .workspace import ImageWorkspace
@@ -43,6 +44,7 @@ _COLOR_CHAT   = (55,  35,  60, 255)
 class PixelClawApp(App):
     def __init__(self, *, openai_key: str | None = None, **kwargs) -> None:
         self._openai_key = openai_key
+        self._dialog_queue: queue.Queue = queue.Queue()
         super().__init__(**kwargs)
 
     def get_instructions_path(self) -> Path:
@@ -55,7 +57,8 @@ class PixelClawApp(App):
         return [
             ApplyTool(), CloseDocsTool(), CropTool(), DefringeTool(), FillTool(),
             EditImageTool(self._openai_key), GenerateImageTool(self._openai_key),
-            InspectTool(), MultiApplyTool(), NewFromRegionTool(), NewImageTool(), PadTool(),
+            InspectTool(), MultiApplyTool(), NewFromRegionTool(), NewImageTool(),
+            OpenDocumentTool(dialog_queue=self._dialog_queue), PadTool(),
             PixelateTool(), PosterizeTool(), QueryTool(), RemoveBackgroundTool(),
             RenameDocumentTool(), RevertTool(), RotateTool(), SaveDocumentTool(),
             ScaleTool(), SeparateLayersTool(), SetActiveTool(), SetBgColorTool(), SoftThresholdTool(),
@@ -243,6 +246,12 @@ class PixelClawApp(App):
         rl.CloseAudioDevice()
 
     def update(self) -> None:
+        while not self._dialog_queue.empty():
+            event, result_holder = self._dialog_queue.get()
+            paths = open_images()
+            result_holder.append(paths)
+            event.set()
+
         while not self.workspace.message_queue.empty():
             self.chat.add_entry(self.workspace.message_queue.get_nowait(), "agent")
 
@@ -272,23 +281,6 @@ def _expand_model(name: str) -> str:
     if name.startswith("gemini-"):
         return "gemini/" + name
     return name
-
-
-def _find_key_for_char(char: str) -> int:
-    """Return the Raylib key code that produces *char* in the current keyboard layout.
-
-    Uses glfwGetKeyName (layout-aware) so Dvorak, Colemak, etc. work correctly.
-    Falls back to the QWERTY key code if no match is found.
-    """
-    target = char.lower()
-    fallback = getattr(rl, f"KEY_{char.upper()}", rl.KEY_S)
-    for key in range(32, 350):
-        raw = rl.glfwGetKeyName(key, 0)
-        if raw != rl.ffi.NULL:
-            name = rl.ffi.string(raw).decode(errors="ignore").lower()
-            if name == target:
-                return key
-    return fallback
 
 
 def _save_pil(image: np.ndarray, path: Path) -> None:

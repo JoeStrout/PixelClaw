@@ -11,6 +11,7 @@ from .history import VersionHistoryTool
 from .inspect import InspectTool
 from .multi_apply import MultiApplyTool
 from .new_from_region import NewFromRegionTool
+from .open_document import OpenDocumentTool
 from .new_image import NewImageTool
 from .rotate import RotateTool
 from .pad import PadTool
@@ -31,7 +32,7 @@ __all__ = [
     "ApplyTool", "CloseDocsTool", "FillTool", "CropTool", "DefringeTool", "EditImageTool",
     "RenameDocumentTool", "SaveDocumentTool",
     "GenerateImageTool", "InspectTool", "MultiApplyTool",
-    "NewFromRegionTool", "NewImageTool", "PadTool", "PixelateTool", "PosterizeTool",
+    "NewFromRegionTool", "NewImageTool", "OpenDocumentTool", "PadTool", "PixelateTool", "PosterizeTool",
     "QueryTool", "RemoveBackgroundTool", "RevertTool",
     "RotateTool", "ScaleTool", "SeparateLayersTool", "SetActiveTool", "SetBgColorTool", "SoftThresholdTool",
     "TrimTool", "UndoTool", "VersionHistoryTool",
