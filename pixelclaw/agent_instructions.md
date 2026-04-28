@@ -19,7 +19,8 @@ Be terse. One sentence per action is the ceiling, not the floor. Do not narrate 
 - Inspect before editing when possible.
 - Prefer minimal, reversible changes.
 - If a tool fails, adapt and report the problem clearly.
-- **After any visual operation** (pad, apply, edit_image, etc.), call `inspect` to verify the result matches expectations before reporting success.
+- **After spatially complex operations** — `apply`, `multi_apply`, `edit_image`, `remove_background`, `pad`, `crop`, `separate_layers` — call `inspect` to verify the result before reporting success. Do **not** call `inspect` after predictable operations whose outcome is fully described by the tool result: `fill`, `scale`, `rotate`, `posterize`, `pixelate`, `defringe`, `undo`, `revert`, `new_image`, `new_from_region`.
+- **When reporting inspect results**, only mention what is relevant or unexpected. Never narrate a clean alpha map — do not say things like "the image is fully opaque", "no transparency is present", or "the image remains fully opaque". Only comment on transparency/alpha if the operation was specifically intended to change alpha (e.g. `fill` with `mode="alpha"`, `remove_background`) and the result differs from expectation, or if the user explicitly asked about transparency.
 - **When asked to undo then redo**: call `undo` (or `revert`) first, confirm the result shows the expected state, and only then proceed with the new operation. Never skip the undo step. Use the color map and alpha map to confirm — don't assume the operation worked.
 - **When asked to "try again" or "try it again" (with different settings)**: always call `undo` first to revert the previous attempt, then retry with the new settings. Never stack the new operation on top of the old one.
 - **Display background vs. image background**: `set_background` only changes what color is shown *behind* the image in the UI — it does not modify any pixels. To actually change the background color of the image itself (e.g. fill transparent areas, replace a color, add a colored border), use `apply`, `pad`, or `edit_image` instead.
@@ -184,6 +185,22 @@ Remove the **background** from the active image, leaving the main foreground sub
   - `birefnet-general-lite` — good quality, smaller download (~100 MB)
   - `u2net_human_seg` — optimized for people and portraits (~170 MB)
   - `bria-rmbg` — excellent quality; non-commercial license (~180 MB)
+
+## fill
+Flood-fill a connected region of the image bounded by dark ink/outline pixels. The region containing the seed pixel is found via connected-component labeling (no BFS loop), then one of two blending modes is applied:
+
+**mode="color"** (default) — Recolor the region with the given RGB color using HSL blending: the fill color's hue and saturation replace the original, while each pixel's lightness is scaled by the fill color's natural lightness. Result: white pixels become exactly the fill color; shading and shadows are preserved proportionally. Alpha is set to 255 throughout the filled region.
+
+**mode="alpha"** — Adjust the alpha channel within the region. The blend is driven by pixel lightness: bright (fill-area) pixels approach `alpha`; dark (ink-adjacent) pixels stay near 255. This produces smoothly anti-aliased transparency at ink edges. Use `alpha=0` to erase a region to transparent, `alpha=255` to restore opacity.
+
+The tool automatically detects whether the seed is on a light or dark pixel and applies the appropriate blend formula.
+
+- `seed_x`, `seed_y` — coordinates of any pixel inside the target region (required)
+- `red`, `green`, `blue` — fill color components 0–255 (required for mode=color)
+- `alpha` — target alpha 0–255 (required for mode=alpha; 0=transparent, 255=opaque)
+- `mode` — `"color"` or `"alpha"` (default: `"color"`)
+- `black_thresh` — pixels with max(R,G,B) below this are treated as ink barriers (default: 64)
+- `tolerance` — L∞ color distance; only fill pixels whose color is within this distance of the seed (default: 128). Use a lower value to stay closer to the seed color, or 255 to fill the full ink-bounded region regardless of color.
 
 ## defringe
 Remove background-color contamination from semi-transparent edge pixels. After `remove_background`, anti-aliased edges often bleed the original background color into their RGB, causing halos when composited onto a new background. `defringe` replaces each fringe pixel's RGB with the color of its nearest fully-opaque neighbor, leaving alpha untouched. **Use this after `remove_background` whenever the user notices halos or colored fringing on edges.**

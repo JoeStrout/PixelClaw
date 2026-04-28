@@ -91,6 +91,44 @@ I also added my first meta-command: `/model` can be used to see or change the cu
 
 Finally, added a log module that logs clean transcripts of the conversation and tool use.  Not as complete as what goes into debug_output, but far more compact and readable.
 
-Next up: I'm going to try to make this work on Ubuntu.
+Next up: I'm going to try to make this work on Ubuntu.   ...It worked perfectly with no changes (we already fall back to TKinter file dialogs when not on Mac).  Awesome.
 
+
+## Apr 28 2026
+
+Next steps I'm considering:
+
+- Loading images from URLs.
+- Clipboard support in our text field.
+- Displaying file path (or a note, like the URL loaded from?) of selected image.
+- Supporting image "stacks" or multi-frame images.  (Needs more thought.)
+- A fill tool, so you can point at the image and say "make this area transparent" or "fill this area with white".  But I want it to be smart, using a "soft" fill that extends into the border neatly.
+
+I think I want to start with the fill tool today.  This is a tricky operation to do well; ChatGPT suggest searching for "fill under anti-aliased lineart" or "comic flatting" (apparently "flatting" is a technical term for this process).  I could also consider "gap-aware" or "leak-proof" flood fill for handling small gaps.
+
+In separate_layers.py, we already have some nice code to separate comic line-art into color and ink layers.  That will probably be an important intermediate step.  One possible problem with this: it also reduces the color palette at the same time, which may not always be what we want.
+
+So I built this up step by step in a new fill.py module.  It turned out not to be necessary to actually separate the ink layer; a simple thresholding (in combination with mixing) does the job.  The mixing uses HSL when in "color" mode, so that you keep whatever shading was previously present but change the hue.  In "alpha" mode it does something similar, resulting in anti-aliased pixels around the edges of a newly transparent area.
+
+I find this new fill function is so good that at least on clean line art, it's often better to use it ("make this area transparent" while pointing at the background) than to use the remove_background tool.
+
+Upon more testing, I had to handle some additional cases.  We ended up with a set of heuristics, a decision tree as follows:
+
+Light seed (bright pixel):                                                                                  
+1. Compute the ink-bounded fill (connected region not blocked by dark pixels).
+2. Also compute a tolerance=128 fill (same, but candidates must be within L∞ 128 of the seed color).        
+3. If the tolerance fill is more than 10% smaller than the ink-bounded fill, use it — the seed's color region is meaningfully smaller than the ink-bounded area (e.g. adjacent flat regions share no ink boundary).
+4. Otherwise use the ink-bounded fill — the ink barriers already contain the region, or everything is within 128 anyway.                                                                                                
+																										  
+Dark seed (dark/ink pixel):                               
+Use a simple ink-bounded fill with a wider threshold (3× black_thresh) to capture anti-aliased ink edges.   
+																										  
+Explicit tolerance:                                                                                         
+Bypasses both of the above — candidates are filtered by the given L∞ distance from the start, and ink-bounded falls back only if the seed lands on ink.                                                       
+														
+Color blending (mode="color"):                                                                              
+- Light seed: multiply blend — result_L = orig_L × fill_L (white → exact fill color, shadows preserved)
+- Dark seed: screen blend — result_L = 1 − (1−orig_L)(1−fill_L) (black → exact fill color)                  
+																						
+Alpha mode: lightness-weighted alpha ramp instead of color blend; same light/dark distinction applies.      
 

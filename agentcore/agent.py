@@ -1,5 +1,7 @@
 import json
 import shutil
+import time
+from datetime import datetime
 from pathlib import Path
 
 import litellm
@@ -110,7 +112,22 @@ class Agent:
 
             self._write_debug("request", {k: v for k, v in kwargs.items() if k != "api_key"})
 
+            ctx_chars = len(json.dumps(kwargs["messages"], default=str))
+            print(f"[llm] {datetime.now().strftime('%H:%M:%S')}  →  "
+                  f"{len(kwargs['messages'])} messages, {ctx_chars:,} chars", flush=True)
+            _t0 = time.monotonic()
+
             response = self._call_llm(**kwargs)
+
+            elapsed = time.monotonic() - _t0
+            usage = getattr(response, "usage", None)
+            if usage:
+                print(f"[llm] {datetime.now().strftime('%H:%M:%S')}  ←  "
+                      f"{usage.prompt_tokens:,} prompt + {usage.completion_tokens:,} completion tokens  "
+                      f"({elapsed:.1f}s)", flush=True)
+            else:
+                print(f"[llm] {datetime.now().strftime('%H:%M:%S')}  ←  "
+                      f"response received  ({elapsed:.1f}s)", flush=True)
 
             try:
                 self._write_debug("response", response.model_dump())

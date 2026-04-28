@@ -22,11 +22,12 @@ from . import textures
 from .ml_deps import ensure_packages
 from agentcore.speech import speak, preload as preload_speech
 from agentcore.stt import preload as preload_stt
-from .tools import (ApplyTool, CloseDocsTool, CropTool, DefringeTool, EditImageTool, GenerateImageTool,
-                    InspectTool, MultiApplyTool, NewFromRegionTool, NewImageTool, PadTool,
-                    PixelateTool, PosterizeTool, QueryTool, RemoveBackgroundTool, RenameDocumentTool,
-                    RevertTool, RotateTool, SaveDocumentTool, ScaleTool, SeparateLayersTool,
-                    SetActiveTool, SetBgColorTool, SoftThresholdTool, TrimTool, UndoTool, VersionHistoryTool)
+from .tools import (ApplyTool, CloseDocsTool, CropTool, DefringeTool, EditImageTool, FillTool,
+                    GenerateImageTool, InspectTool, MultiApplyTool, NewFromRegionTool, NewImageTool,
+                    PadTool, PixelateTool, PosterizeTool, QueryTool, RemoveBackgroundTool,
+                    RenameDocumentTool, RevertTool, RotateTool, SaveDocumentTool, ScaleTool,
+                    SeparateLayersTool, SetActiveTool, SetBgColorTool, SoftThresholdTool, TrimTool,
+                    UndoTool, VersionHistoryTool)
 from .file_dialogs import open_images, save_image
 from .headerpanel import _alt_is_held
 from .workspace import ImageWorkspace
@@ -52,7 +53,7 @@ class PixelClawApp(App):
 
     def create_tools(self) -> list[Tool]:
         return [
-            ApplyTool(), CloseDocsTool(), CropTool(), DefringeTool(),
+            ApplyTool(), CloseDocsTool(), CropTool(), DefringeTool(), FillTool(),
             EditImageTool(self._openai_key), GenerateImageTool(self._openai_key),
             InspectTool(), MultiApplyTool(), NewFromRegionTool(), NewImageTool(), PadTool(),
             PixelateTool(), PosterizeTool(), QueryTool(), RemoveBackgroundTool(),
