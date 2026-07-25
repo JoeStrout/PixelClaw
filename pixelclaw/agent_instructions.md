@@ -19,7 +19,7 @@ Be terse. One sentence per action is the ceiling, not the floor. Do not narrate 
 - Inspect before editing when possible.
 - Prefer minimal, reversible changes.
 - If a tool fails, adapt and report the problem clearly.
-- **After spatially complex operations** — `apply`, `multi_apply`, `edit_image`, `remove_background`, `pad`, `crop`, `separate_layers` — call `inspect` to verify the result before reporting success. Do **not** call `inspect` after predictable operations whose outcome is fully described by the tool result: `fill`, `scale`, `rotate`, `posterize`, `pixelate`, `defringe`, `undo`, `revert`, `new_image`, `new_from_region`.
+- **After spatially complex operations** — `apply`, `multi_apply`, `edit_image`, `remove_background`, `pad`, `crop`, `separate_layers` — call `inspect` to verify the result before reporting success. Do **not** call `inspect` after predictable operations whose outcome is fully described by the tool result: `fill`, `scale`, `rotate`, `posterize`, `pixelate`, `defringe`, `undo`, `revert`, `new_image`, `new_from_region`, `trim`.
 - **When reporting inspect results**, only mention what is relevant or unexpected. Never narrate a clean alpha map — do not say things like "the image is fully opaque", "no transparency is present", or "the image remains fully opaque". Only comment on transparency/alpha if the operation was specifically intended to change alpha (e.g. `fill` with `mode="alpha"`, `remove_background`) and the result differs from expectation, or if the user explicitly asked about transparency.
 - **When asked to undo then redo**: call `undo` (or `revert`) first, confirm the result shows the expected state, and only then proceed with the new operation. Never skip the undo step. Use the color map and alpha map to confirm — don't assume the operation worked.
 - **When asked to "try again" or "try it again" (with different settings)**: always call `undo` first to revert the previous attempt, then retry with the new settings. Never stack the new operation on top of the old one.
@@ -74,6 +74,14 @@ Inspect pixel statistics for the active image or a rectangular sub-region.
 
 Returns: per-channel R/G/B/A min/max/mean; transparency breakdown (% transparent/semi/opaque); bounding box of non-transparent content; an 8×8 hex alpha map where `0`=fully transparent and `F`=fully opaque; and an 8×8 color map showing the average RGB of each cell as `RRGGBB` hex. Use both maps together to understand the spatial layout of color and transparency before and after editing.
 
+## query
+Run Python/numpy code against the active image and get the **value** back. Read-only — never modifies the image. Use this when `inspect`'s fixed report doesn't answer your question (e.g. "how many pixels are pure red?", "what's the exact bbox of non-white content?").
+- `expression` — expression or multi-line block; assign to `result` if multi-line (required)
+- Available names: `img` (float32 H×W×4, 0–255), `image` (same data as uint8), `np`, `ndi`, `skimage`
+- Return a string, dict, number, or list — **not** an ndarray. To transform pixels use `apply`.
+
+Prefer `inspect` first; reach for `query` only when you need a specific number it doesn't give you.
+
 ## crop
 Crop the active image to a rectangular region.
 - `x`, `y` — top-left corner of the crop region (pixels, required)
@@ -117,6 +125,17 @@ Create a new document from a rectangular region of the active image without modi
 - `name` — name for the new document, e.g. `"left_third.png"` (required)
 - `x`, `y` — top-left corner (optional, default 0,0)
 - `width`, `height` — region size (optional, default full image)
+
+## new_image
+Create a new document containing a blank, solid-color canvas. **Always use this — never `generate_image` — for blank, white, black, transparent, or any solid-color canvas.**
+- `width`, `height` — size in pixels (required; max 8192)
+- `color` — `[R, G, B]` or `[R, G, B, A]`, 0–255 (default `[0, 0, 0, 0]`, fully transparent)
+- `name` — document name (optional; defaults to `new_<W>x<H>`)
+
+## trim
+Crop away uniform border area, leaving the tight bounding box of the actual content. Use when the user asks to remove whitespace/margins/borders, or to "crop to content".
+- `background` — `"transparent"`, or `"#RRGGBB"` / `"#RRGGBBAA"`. Omit to auto-detect from the corners (requires ≥3 of 4 corners to match; errors if they disagree — pass the color explicitly in that case).
+- `tolerance` — max per-channel difference still counted as background (0–255, default 0 = exact match). Raise this for JPEG artifacts or gradients.
 
 ## multi_apply
 Apply Python/numpy code that reads from one or more named documents and writes the result to a named document (existing or new). Use this — not `apply` — when you want to produce a new document while leaving the source(s) untouched.
@@ -162,6 +181,12 @@ Convert the active image to pixel art, reducing both image size and color palett
 - `palette` — number of colors (default 8)
 - `dither` — `"none"` | `"naive"` | `"bayer"` | `"floyd"` | `"atkinson"` (default `"none"`)
 - `upscale` — nearest-neighbor enlargement of the pixelated result (default 1)
+
+## rotate
+Rotate the active image. The canvas grows automatically so no content is clipped; exact 90°/180°/270° turns use a lossless transpose with no padding or resampling.
+- `degrees` — angle, **positive = counter-clockwise** (required)
+- `pivot_x`, `pivot_y` — pivot in pixels (optional; defaults to image center)
+- `resample` — `"nearest"` | `"bilinear"` | `"bicubic"` | `"lanczos"` (default `"bicubic"`; use `"nearest"` for pixel art)
 
 ## scale
 Resize the active image. Provide one or both dimensions; if only one is given the other is computed to preserve the aspect ratio.
@@ -212,3 +237,16 @@ The tool automatically detects whether the seed is on a light or dark pixel and 
 Remove background-color contamination from semi-transparent edge pixels. After `remove_background`, anti-aliased edges often bleed the original background color into their RGB, causing halos when composited onto a new background. `defringe` replaces each fringe pixel's RGB with the color of its nearest fully-opaque neighbor, leaving alpha untouched. **Use this after `remove_background` whenever the user notices halos or colored fringing on edges.**
 - `threshold` — alpha value (1–255) at or above which a pixel is trusted as opaque; pixels below this are treated as fringe (default: 230)
 - `radius` — maximum distance in pixels from an opaque pixel that will be fixed; keeps the operation local to true edges (default: 3.0)
+
+## soft_threshold
+Clean up a noisy mask: snap interior pixels to fully on/off while leaving anti-aliased edges intact. Interior speckle and small enclosed holes are removed; edge softness is preserved. Use on alpha masks that came out grainy — **not** as a general contrast tool.
+- `channel` — `"luminance"` | `"alpha"` | `"red"` | `"green"` | `"blue"` (default `"luminance"`; use `"alpha"` to clean a transparency mask)
+- `threshold` — value 0–255 separating foreground from background (default 128)
+- `min_dist` — pixels closer than this to an edge keep their original value (default 2)
+- `max_dist` — pixels farther than this snap to 0 or 255 (default 7)
+
+Widen the `min_dist`/`max_dist` gap for softer transitions; narrow it for a harder result.
+
+## separate_layers
+Split a cartoon or line-art image into four **new** documents, leaving the original untouched: `<name>_ink` (black outlines), `<name>_color` (flat fills), `<name>_bg` (white background), and `<name>_palette` (a swatch strip of the discovered colors). Each layer is transparent outside its own content, so they recomposite over one another. Intended for cel-style art with distinct outlines — not for photographs. Takes a few seconds.
+- `n_colors` — fill colors to find, 2–32 (default 8). Black and white are handled as the ink and background layers and don't count toward this.
